@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --color-brand-50: #fffbeb;
+  --color-brand-100: #fef3c7;
+  --color-brand-200: #fde68a;
+  --color-brand-300: #fcd34d;
+  --color-brand-400: #fbbf24;
+  --color-brand-500: #f59e0b;
+  --color-brand-600: #d97706;
+  --color-brand-700: #b45309;
+  --color-brand-800: #92400e;
+  --color-brand-900: #78350f;
+}
+
+/* CSS Custom Properties for white-label theming */
+:root {
+  --brand-primary: #d97706;
+  --brand-light: #fbbf24;
+  --brand-dark: #92400e;
+  --sidebar-bg: #0f172a;
+  --sidebar-text: #94a3b8;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
