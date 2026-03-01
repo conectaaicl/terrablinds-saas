@@ -1,5 +1,5 @@
 // ── Roles del sistema ──
-export type Rol = 'superadmin' | 'jefe' | 'coordinador' | 'vendedor' | 'fabricante' | 'instalador';
+export type Rol = 'superadmin' | 'jefe' | 'gerente' | 'coordinador' | 'vendedor' | 'fabricante' | 'instalador';
 
 // ── Chat y Catálogo de Productos ──
 export type ChatMessage = {
@@ -25,29 +25,42 @@ export type ProductCatalogItem = {
   activo: boolean;
 };
 
-// ── Estados de orden (flujo único) ──
+// ── Estados de orden (13 estados) ──
 export type EstadoOrden =
   | 'cotizado'
+  | 'cotizacion_enviada'
   | 'confirmado'
   | 'en_fabricacion'
-  | 'listo'
+  | 'fabricado'
+  | 'agendado'
+  | 'en_ruta'
   | 'en_instalacion'
-  | 'instalado'
-  | 'problema';
+  | 'pendiente_firma'
+  | 'cerrado'
+  | 'problema'
+  | 'cancelado'
+  | 'rechazado';
 
 export const ESTADO_CONFIG: Record<EstadoOrden, { label: string; color: string; bg: string; border: string; dot: string }> = {
-  cotizado:        { label: 'Cotizado',         color: 'text-slate-700',   bg: 'bg-slate-100',    border: 'border-slate-300',   dot: 'bg-slate-400' },
-  confirmado:      { label: 'Confirmado',       color: 'text-blue-700',    bg: 'bg-blue-50',      border: 'border-blue-300',    dot: 'bg-blue-500' },
-  en_fabricacion:  { label: 'En Fabricación',   color: 'text-amber-700',   bg: 'bg-amber-50',     border: 'border-amber-300',   dot: 'bg-amber-500' },
-  listo:           { label: 'Listo',            color: 'text-emerald-700', bg: 'bg-emerald-50',   border: 'border-emerald-300', dot: 'bg-emerald-500' },
-  en_instalacion:  { label: 'En Instalación',   color: 'text-violet-700',  bg: 'bg-violet-50',    border: 'border-violet-300',  dot: 'bg-violet-500' },
-  instalado:       { label: 'Instalado',        color: 'text-green-700',   bg: 'bg-green-50',     border: 'border-green-300',   dot: 'bg-green-500' },
-  problema:        { label: 'Problema',         color: 'text-red-700',     bg: 'bg-red-50',       border: 'border-red-300',     dot: 'bg-red-500' },
+  cotizado:          { label: 'Cotizado',           color: 'text-slate-700',   bg: 'bg-slate-100',    border: 'border-slate-300',   dot: 'bg-slate-400' },
+  cotizacion_enviada:{ label: 'Cotización Enviada', color: 'text-sky-700',     bg: 'bg-sky-50',       border: 'border-sky-300',     dot: 'bg-sky-500' },
+  confirmado:        { label: 'Confirmado',         color: 'text-blue-700',    bg: 'bg-blue-50',      border: 'border-blue-300',    dot: 'bg-blue-500' },
+  en_fabricacion:    { label: 'En Fabricación',     color: 'text-amber-700',   bg: 'bg-amber-50',     border: 'border-amber-300',   dot: 'bg-amber-500' },
+  fabricado:         { label: 'Fabricado',          color: 'text-lime-700',    bg: 'bg-lime-50',      border: 'border-lime-300',    dot: 'bg-lime-500' },
+  agendado:          { label: 'Agendado',           color: 'text-teal-700',    bg: 'bg-teal-50',      border: 'border-teal-300',    dot: 'bg-teal-500' },
+  en_ruta:           { label: 'En Ruta',            color: 'text-indigo-700',  bg: 'bg-indigo-50',    border: 'border-indigo-300',  dot: 'bg-indigo-500' },
+  en_instalacion:    { label: 'En Instalación',     color: 'text-violet-700',  bg: 'bg-violet-50',    border: 'border-violet-300',  dot: 'bg-violet-500' },
+  pendiente_firma:   { label: 'Pendiente Firma',    color: 'text-orange-700',  bg: 'bg-orange-50',    border: 'border-orange-300',  dot: 'bg-orange-500' },
+  cerrado:           { label: 'Cerrado',            color: 'text-green-700',   bg: 'bg-green-50',     border: 'border-green-300',   dot: 'bg-green-500' },
+  problema:          { label: 'Problema',           color: 'text-red-700',     bg: 'bg-red-50',       border: 'border-red-300',     dot: 'bg-red-500' },
+  cancelado:         { label: 'Cancelado',          color: 'text-gray-600',    bg: 'bg-gray-100',     border: 'border-gray-300',    dot: 'bg-gray-400' },
+  rechazado:         { label: 'Rechazado',          color: 'text-rose-700',    bg: 'bg-rose-50',      border: 'border-rose-300',    dot: 'bg-rose-400' },
 };
 
 export const ROL_CONFIG: Record<Rol, { label: string; color: string; bg: string }> = {
-  superadmin: { label: 'Super Admin', color: 'text-rose-700',    bg: 'bg-rose-500' },
+  superadmin: { label: 'Super Admin',   color: 'text-rose-700',    bg: 'bg-rose-500' },
   jefe:       { label: 'Jefe / Dueño',  color: 'text-amber-700',   bg: 'bg-amber-500' },
+  gerente:    { label: 'Gerente',        color: 'text-orange-700',  bg: 'bg-orange-500' },
   coordinador:{ label: 'Coordinador',   color: 'text-cyan-700',    bg: 'bg-cyan-500' },
   vendedor:   { label: 'Vendedor',       color: 'text-blue-700',    bg: 'bg-blue-500' },
   fabricante: { label: 'Fabricante',     color: 'text-emerald-700', bg: 'bg-emerald-500' },

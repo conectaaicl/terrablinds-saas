@@ -1,16 +1,19 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Store } from '../../data/store';
 import { useAuth } from '../../context/AuthContext';
+import { useApi } from '../../hooks/useApi';
+import { useMutation } from '../../hooks/useMutation';
+import { api } from '../../services/api';
 import { ESTADO_CONFIG, TIPOS_PRODUCTO, TELAS, COLORES } from '../../types';
-// import { QuotationActions } from '../../components/IntegrationPlaceholders';
-import type { ProductoLinea, EstadoOrden } from '../../types';
+import type { EstadoOrden } from '../../types';
+import { Spinner, ErrorMessage } from '../../components/LoadingStates';
 import {
   FileText, ChevronRight, Plus, Trash2, ArrowLeft, Clock, User, Ruler,
   Palette, CheckCircle, Search, ShoppingBag
 } from 'lucide-react';
 
 const fmt = (n: number) => '$' + n.toLocaleString('es-CL');
+const fmtDate = (s: string) => s ? new Date(s).toLocaleDateString('es-CL') : '—';
 
 // ═══════════════════════════════════════
 // MIS COTIZACIONES / PEDIDOS
@@ -19,42 +22,33 @@ export function MisCotizaciones() {
   const { user } = useAuth();
   const [search, setSearch] = useState('');
 
-  const ordenes = useMemo(() => Store.getOrdenes(user?.tenantId).filter(o => o.vendedorId === user?.id), [user]);
-  const cots = useMemo(() => Store.getCotizaciones(user?.tenantId).filter(c => c.vendedorId === user?.id && c.estado === 'pendiente'), [user]);
+  const { data: orders, loading, error, refetch } = useApi(() => api.getOrders());
+  const orderList: any[] = orders || [];
 
-  const items = useMemo(() => {
-    const list: { id: string; clienteId: string; fecha: string; total: number; estado: string; cfg: { bg: string; color: string }; prods: number; link: string }[] = [];
-    cots.forEach(c => list.push({
-      id: c.id, clienteId: c.clienteId, fecha: c.fecha, total: c.precioTotal,
-      estado: 'Pendiente', cfg: { bg: 'bg-yellow-50', color: 'text-yellow-700' },
-      prods: c.productos.length, link: '#',
-    }));
-    ordenes.forEach(o => {
-      const ec = ESTADO_CONFIG[o.estado];
-      list.push({
-        id: o.id, clienteId: o.clienteId, fecha: o.fechaCreacion, total: o.precioTotal,
-        estado: ec.label, cfg: { bg: ec.bg, color: ec.color },
-        prods: o.productos.length, link: `/vendedor/pedido/${o.id}`,
-      });
-    });
-    return list.sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [ordenes, cots]);
+  // Filtrar sólo las órdenes del vendedor actual
+  const misOrdenes = useMemo(() =>
+    orderList.filter(o => o.vendedor_id === user?.id),
+    [orderList, user]
+  );
 
   const filtered = useMemo(() => {
-    if (!search) return items;
+    if (!search) return misOrdenes;
     const s = search.toLowerCase();
-    return items.filter(it => {
-      const cli = Store.getClienteById(it.clienteId);
-      return it.id.toLowerCase().includes(s) || cli?.nombre.toLowerCase().includes(s);
-    });
-  }, [items, search]);
+    return misOrdenes.filter(o =>
+      String(o.numero).includes(s) ||
+      (o.cliente_nombre || '').toLowerCase().includes(s)
+    );
+  }, [misOrdenes, search]);
+
+  if (loading) return <Spinner />;
+  if (error) return <ErrorMessage message={error} onRetry={refetch} />;
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Mis Pedidos</h1>
-          <p className="text-sm text-slate-500">{items.length} registros</p>
+          <p className="text-sm text-slate-500">{misOrdenes.length} registros</p>
         </div>
         <Link to="/vendedor/nueva"
           className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90"
@@ -70,24 +64,26 @@ export function MisCotizaciones() {
       </div>
 
       <div className="space-y-2">
-        {filtered.map(it => {
-          const cli = Store.getClienteById(it.clienteId);
+        {filtered.map(o => {
+          const cfg = ESTADO_CONFIG[o.estado as EstadoOrden] || ESTADO_CONFIG.cotizado;
           return (
-            <Link key={it.id} to={it.link}
+            <Link key={o.id} to={`/vendedor/pedido/${o.id}`}
               className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:shadow-sm">
               <div className="flex items-center gap-3.5">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${it.link === '#' ? 'bg-slate-100' : 'bg-blue-50'}`}>
-                  {it.link === '#' ? <FileText size={17} className="text-slate-400" /> : <ShoppingBag size={17} className="text-blue-500" />}
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                  <ShoppingBag size={17} className="text-blue-500" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800">{it.id}</p>
-                  <p className="truncate text-xs text-slate-500">{cli?.nombre} · {it.prods} prod. · {it.fecha}</p>
+                  <p className="text-sm font-semibold text-slate-800">#{o.numero}</p>
+                  <p className="truncate text-xs text-slate-500">
+                    {o.cliente_nombre || '—'} · {o.productos?.length || 0} prod. · {fmtDate(o.created_at)}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <p className="text-sm font-bold text-slate-800">{fmt(it.total)}</p>
-                  <span className={`text-[11px] font-semibold ${it.cfg.color}`}>{it.estado}</span>
+                  <p className="text-sm font-bold text-slate-800">{fmt(o.precio_total)}</p>
+                  <span className={`text-[11px] font-semibold ${cfg.color}`}>{cfg.label}</span>
                 </div>
                 <ChevronRight size={15} className="text-slate-300" />
               </div>
@@ -107,47 +103,65 @@ export function MisCotizaciones() {
 // ═══════════════════════════════════════
 // NUEVA COTIZACIÓN (wizard 3 pasos)
 // ═══════════════════════════════════════
+type Producto = {
+  tipo: string; ancho: number; alto: number;
+  tela: string; color: string; precio: number; notas: string;
+};
+
 export function NuevaCotizacion() {
   const { user } = useAuth();
   const nav = useNavigate();
-  const tenantId = user?.tenantId || '';
   const [step, setStep] = useState(1);
-
-  const [selCliente, setSelCliente] = useState('');
+  const [selCliente, setSelCliente] = useState<number | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [nc, setNc] = useState({ nombre: '', email: '', telefono: '', direccion: '' });
-  const [productos, setProductos] = useState<ProductoLinea[]>([]);
-  const [cp, setCp] = useState({ tipo: TIPOS_PRODUCTO[0], ancho: 100, alto: 100, tela: TELAS[0], color: COLORES[0], precio: 0, notas: '' });
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [cp, setCp] = useState<Producto>({
+    tipo: TIPOS_PRODUCTO[0], ancho: 100, alto: 100,
+    tela: TELAS[0], color: COLORES[0], precio: 0, notas: '',
+  });
 
-  const misClientes = useMemo(() => Store.getClientes(tenantId).filter(c => c.vendedorId === user?.id), [user, tenantId]);
+  const { data: clientes } = useApi(() => api.getClients());
+  const { execute: crearCliente, loading: creatingCli } = useMutation(api.createClient);
+  const { execute: crearOrden, loading: creatingOrd, error: orderErr } = useMutation(api.createOrder);
+
+  const clienteList: any[] = clientes || [];
   const total = productos.reduce((s, p) => s + p.precio, 0);
 
   const addProd = () => {
     if (!cp.precio) return;
-    setProductos(prev => [...prev, { id: Store.uid(), tipo: cp.tipo, ancho: cp.ancho, alto: cp.alto, tela: cp.tela, color: cp.color, precio: cp.precio, notas: cp.notas || undefined }]);
+    setProductos(prev => [...prev, { ...cp }]);
     setCp(p => ({ ...p, precio: 0, notas: '' }));
   };
 
   const rmProd = (i: number) => setProductos(p => p.filter((_, j) => j !== i));
 
-  const crear = useCallback(() => {
+  const crear = useCallback(async () => {
     if (!user) return;
-    let cid = selCliente;
-    if (isNew) {
-      const c = Store.addCliente({ ...nc, vendedorId: user.id, tenantId });
-      cid = c.id;
-    }
-    const cot = Store.addCotizacion({
-      clienteId: cid, vendedorId: user.id, tenantId,
-      productos, precioTotal: total,
-      fecha: new Date().toISOString().split('T')[0],
-      estado: 'pendiente',
-    });
-    Store.confirmarCotizacion(cot.id, user);
-    nav('/vendedor');
-  }, [user, selCliente, isNew, nc, productos, total, nav, tenantId]);
+    let clienteId = selCliente;
 
-  const canNext1 = isNew ? nc.nombre.length > 0 : !!selCliente;
+    if (isNew) {
+      const cli = await crearCliente({ nombre: nc.nombre, email: nc.email || undefined, telefono: nc.telefono || undefined, direccion: nc.direccion || undefined });
+      if (!cli) return;
+      clienteId = cli.id;
+    }
+
+    if (!clienteId) return;
+
+    const res = await crearOrden({
+      cliente_id: clienteId,
+      productos: productos.map(p => ({
+        tipo: p.tipo, ancho: p.ancho, alto: p.alto,
+        tela: p.tela, color: p.color, precio: p.precio,
+        notas: p.notas || undefined,
+      })),
+      precio_total: total,
+    });
+
+    if (res) nav('/vendedor');
+  }, [user, selCliente, isNew, nc, productos, total, nav, crearCliente, crearOrden]);
+
+  const canNext1 = isNew ? nc.nombre.length > 0 : selCliente !== null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -176,7 +190,7 @@ export function NuevaCotizacion() {
           </div>
           {!isNew ? (
             <div className="space-y-2">
-              {misClientes.map(c => (
+              {clienteList.map(c => (
                 <label key={c.id} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${selCliente === c.id ? 'border-blue-400 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}>
                   <input type="radio" name="cli" value={c.id} checked={selCliente === c.id} onChange={() => setSelCliente(c.id)} className="accent-blue-500" />
                   <div>
@@ -185,7 +199,7 @@ export function NuevaCotizacion() {
                   </div>
                 </label>
               ))}
-              {misClientes.length === 0 && <p className="text-sm text-slate-400">No tienes clientes, crea uno nuevo.</p>}
+              {clienteList.length === 0 && <p className="text-sm text-slate-400">No hay clientes, crea uno nuevo.</p>}
             </div>
           ) : (
             <div className="space-y-3">
@@ -225,7 +239,7 @@ export function NuevaCotizacion() {
           {productos.length > 0 && (
             <div className="space-y-2">
               {productos.map((p, i) => (
-                <div key={p.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
+                <div key={i} className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
                   <div>
                     <p className="text-sm font-medium text-slate-800">{p.tipo}</p>
                     <p className="text-xs text-slate-500">{p.ancho}×{p.alto} cm · {p.tela} · {p.color}</p>
@@ -256,11 +270,14 @@ export function NuevaCotizacion() {
       {step === 3 && (
         <div className="rounded-xl border border-slate-200 bg-white p-6">
           <h2 className="mb-4 text-base font-semibold text-slate-900">Resumen</h2>
+          {orderErr && (
+            <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{orderErr}</p>
+          )}
           <div className="space-y-4">
             <div className="rounded-lg bg-slate-50 p-4">
               <p className="text-[11px] font-semibold uppercase text-slate-400">Cliente</p>
               <p className="mt-1 text-sm font-medium text-slate-800">
-                {isNew ? nc.nombre : Store.getClienteById(selCliente)?.nombre}
+                {isNew ? nc.nombre : clienteList.find(c => c.id === selCliente)?.nombre || '—'}
               </p>
             </div>
             <div className="space-y-2">
@@ -280,10 +297,13 @@ export function NuevaCotizacion() {
             </div>
           </div>
           <div className="mt-5 flex gap-3">
-            <button onClick={() => setStep(2)} className="flex-1 rounded-lg border border-slate-300 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">Atrás</button>
-            <button onClick={crear}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600">
-              <CheckCircle size={17} /> Confirmar Pedido
+            <button onClick={() => setStep(2)}
+              className="flex-1 rounded-lg border border-slate-300 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
+              Atrás
+            </button>
+            <button onClick={crear} disabled={creatingCli || creatingOrd}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-60">
+              <CheckCircle size={17} /> {creatingOrd ? 'Creando...' : 'Confirmar Pedido'}
             </button>
           </div>
         </div>
@@ -298,12 +318,18 @@ export function NuevaCotizacion() {
 export function PedidoDetalle() {
   const { id } = useParams();
   const nav = useNavigate();
+  const numId = Number(id);
 
-  const orden = useMemo(() => id ? Store.getOrdenById(id) : undefined, [id]);
-  const cli = useMemo(() => orden ? Store.getClienteById(orden.clienteId) : undefined, [orden]);
+  const { data: orden, loading, error, refetch } = useApi(
+    () => api.getOrder(numId),
+    [numId]
+  );
 
+  if (loading) return <Spinner />;
+  if (error) return <ErrorMessage message={error} onRetry={refetch} />;
   if (!orden) return <div className="py-20 text-center text-slate-400">Pedido no encontrado</div>;
-  const cfg = ESTADO_CONFIG[orden.estado];
+
+  const cfg = ESTADO_CONFIG[orden.estado as EstadoOrden] || ESTADO_CONFIG.cotizado;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -313,24 +339,24 @@ export function PedidoDetalle() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{orden.id}</h1>
-          <p className="text-sm text-slate-500">{orden.fechaCreacion}</p>
+          <h1 className="text-2xl font-bold text-slate-900">#{orden.numero}</h1>
+          <p className="text-sm text-slate-500">{fmtDate(orden.created_at)}</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-sm font-semibold ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-3 text-base font-semibold text-slate-900">Cliente</h2>
-        <p className="text-sm font-medium text-slate-800">{cli?.nombre}</p>
-        <p className="text-xs text-slate-500">{cli?.telefono} · {cli?.email}</p>
-        <p className="text-xs text-slate-500">{cli?.direccion}</p>
-      </div>
+      {orden.cliente_nombre && (
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-3 text-base font-semibold text-slate-900">Cliente</h2>
+          <p className="text-sm font-medium text-slate-800">{orden.cliente_nombre}</p>
+        </div>
+      )}
 
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="mb-3 text-base font-semibold text-slate-900">Productos</h2>
         <div className="space-y-2">
-          {orden.productos.map((p, i) => (
-            <div key={p.id} className="rounded-lg border border-slate-200 p-3">
+          {(orden.productos || []).map((p: any, i: number) => (
+            <div key={p.id || i} className="rounded-lg border border-slate-200 p-3">
               <p className="text-sm font-medium text-slate-800">{i + 1}. {p.tipo}</p>
               <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-500">
                 <span className="flex items-center gap-1"><Ruler size={12} />{p.ancho}×{p.alto} cm</span>
@@ -339,23 +365,30 @@ export function PedidoDetalle() {
             </div>
           ))}
         </div>
+        <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
+          <p className="text-base font-bold text-slate-900">Total: {fmt(orden.precio_total)}</p>
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-900"><Clock size={16} /> Seguimiento</h2>
+        <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-900">
+          <Clock size={16} /> Seguimiento
+        </h2>
         <div className="space-y-0">
-          {[...orden.historial].reverse().map((h, i) => {
-            const c = ESTADO_CONFIG[h.estado as EstadoOrden];
+          {[...(orden.historial || [])].reverse().map((h: any, i: number) => {
+            const c = ESTADO_CONFIG[h.estado as EstadoOrden] || ESTADO_CONFIG.cotizado;
             return (
               <div key={i} className="flex gap-3">
                 <div className="flex flex-col items-center">
                   <div className={`mt-0.5 h-2.5 w-2.5 rounded-full ${i === 0 ? c.dot : 'bg-slate-300'}`} />
-                  {i < orden.historial.length - 1 && <div className="h-full w-px bg-slate-200" />}
+                  {i < (orden.historial?.length || 0) - 1 && <div className="h-full w-px bg-slate-200" />}
                 </div>
                 <div className="pb-3">
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${c.bg} ${c.color}`}>{c.label}</span>
-                  <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500"><User size={10} />{h.usuarioNombre}</p>
-                  <p className="text-[11px] text-slate-400">{h.fecha}</p>
+                  <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
+                    <User size={10} />{h.usuario_nombre}
+                  </p>
+                  <p className="text-[11px] text-slate-400">{fmtDate(h.fecha)}</p>
                 </div>
               </div>
             );

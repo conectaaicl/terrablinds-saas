@@ -1,43 +1,48 @@
-import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Store } from '../../data/store';
 import { useAuth } from '../../context/AuthContext';
+import { useApi } from '../../hooks/useApi';
+import { api } from '../../services/api';
 import { ESTADO_CONFIG } from '../../types';
 import type { EstadoOrden } from '../../types';
+import { Spinner, ErrorMessage } from '../../components/LoadingStates';
 import {
   TrendingUp, Package, CheckCircle2, AlertTriangle, ArrowRight, Users
 } from 'lucide-react';
 
 const fmt = (n: number) => '$' + n.toLocaleString('es-CL');
+const fmtDate = (s: string) => s ? new Date(s).toLocaleDateString('es-CL') : '—';
+
+const PIPELINE: EstadoOrden[] = [
+  'cotizado', 'cotizacion_enviada', 'confirmado', 'en_fabricacion',
+  'fabricado', 'agendado', 'en_instalacion', 'pendiente_firma', 'cerrado',
+];
 
 export default function JefeDashboard() {
   const { user, tenant } = useAuth();
-  const tenantId = user?.tenantId || '';
 
-  const ordenes = useMemo(() => Store.getOrdenes(tenantId), [tenantId]);
-  const usuarios = useMemo(() => Store.getUsuariosByTenant(tenantId), [tenantId]);
+  const { data: summary, loading: loadingSum, error: errSum, refetch: refetchSum } = useApi(
+    () => api.getDashboardSummary()
+  );
+  const { data: orders, loading: loadingOrd, error: errOrd, refetch: refetchOrd } = useApi(
+    () => api.getOrders()
+  );
 
-  const stats = useMemo(() => {
-    const byEstado: Record<string, number> = {};
-    let ventas = 0;
-    ordenes.forEach(o => {
-      byEstado[o.estado] = (byEstado[o.estado] || 0) + 1;
-      ventas += o.precioTotal;
-    });
-    return {
-      ventas,
-      byEstado,
-      activas: ordenes.filter(o => !['instalado', 'problema'].includes(o.estado)).length,
-      completadas: ordenes.filter(o => o.estado === 'instalado').length,
-    };
-  }, [ordenes]);
+  const loading = loadingSum || loadingOrd;
+  const error = errSum || errOrd;
 
-  const sinFabricante = ordenes.filter(o => o.estado === 'confirmado' && !o.fabricanteId);
-  const sinInstalador = ordenes.filter(o => o.estado === 'listo' && !o.instaladorId);
-  const conProblema = ordenes.filter(o => o.estado === 'problema');
-  const recientes = [...ordenes].sort((a, b) => b.fechaCreacion.localeCompare(a.fechaCreacion)).slice(0, 6);
+  if (loading) return <Spinner />;
+  if (error) return <ErrorMessage message={error} onRetry={() => { refetchSum(); refetchOrd(); }} />;
 
-  const PIPELINE: EstadoOrden[] = ['cotizado', 'confirmado', 'en_fabricacion', 'listo', 'en_instalacion', 'instalado', 'problema'];
+  const orderList: any[] = orders || [];
+  const byEstado: Record<string, number> = summary?.by_estado || {};
+
+  // Alertas desde lista de órdenes
+  const sinFabricante = orderList.filter(o => o.estado === 'confirmado' && !o.fabricante_id);
+  const sinInstalador = orderList.filter(o => o.estado === 'fabricado' && !o.instalador_id);
+  const conProblema = orderList.filter(o => o.estado === 'problema');
+  const recientes = [...orderList].sort((a, b) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  ).slice(0, 6);
 
   return (
     <div className="space-y-6">
@@ -49,10 +54,26 @@ export default function JefeDashboard() {
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Ventas Totales', value: fmt(stats.ventas), sub: `${ordenes.length} órdenes`, icon: TrendingUp, iconBg: 'bg-amber-100', iconColor: 'text-amber-600' },
-          { label: 'Órdenes Activas', value: stats.activas, sub: 'En proceso', icon: Package, iconBg: 'bg-blue-100', iconColor: 'text-blue-600' },
-          { label: 'Completadas', value: stats.completadas, sub: 'Instaladas', icon: CheckCircle2, iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600' },
-          { label: 'Equipo', value: usuarios.filter(u => u.activo).length, sub: 'Usuarios activos', icon: Users, iconBg: 'bg-violet-100', iconColor: 'text-violet-600' },
+          {
+            label: 'Ventas del Mes', value: fmt(summary?.ventas_mes || 0),
+            sub: `${summary?.ordenes_mes || 0} órdenes este mes`,
+            icon: TrendingUp, iconBg: 'bg-amber-100', iconColor: 'text-amber-600',
+          },
+          {
+            label: 'Órdenes Activas', value: summary?.ordenes_activas ?? orderList.filter(o => !['cerrado', 'cancelado', 'rechazado'].includes(o.estado)).length,
+            sub: 'En proceso',
+            icon: Package, iconBg: 'bg-blue-100', iconColor: 'text-blue-600',
+          },
+          {
+            label: 'Completadas', value: summary?.ordenes_completadas ?? orderList.filter(o => o.estado === 'cerrado').length,
+            sub: 'Cerradas',
+            icon: CheckCircle2, iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600',
+          },
+          {
+            label: 'Equipo', value: summary?.team_activo || '—',
+            sub: 'Usuarios activos',
+            icon: Users, iconBg: 'bg-violet-100', iconColor: 'text-violet-600',
+          },
         ].map(s => (
           <div key={s.label} className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-center justify-between">
@@ -65,7 +86,7 @@ export default function JefeDashboard() {
         ))}
       </div>
 
-      {/* Acción rápida: nueva cotización */}
+      {/* Acción rápida */}
       <div className="rounded-xl border border-dashed border-amber-300/70 bg-amber-50 px-4 py-3 text-xs text-amber-900 flex items-center justify-between gap-2">
         <div>
           <p className="font-semibold">Inicia una nueva cotización</p>
@@ -82,13 +103,13 @@ export default function JefeDashboard() {
       {/* Pipeline */}
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="mb-4 text-base font-semibold text-slate-900">Pipeline de Órdenes</h2>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
           {PIPELINE.map(e => {
             const cfg = ESTADO_CONFIG[e];
             return (
               <div key={e} className={`rounded-lg border p-3 text-center ${cfg.border}`}>
-                <span className={`text-[11px] font-semibold ${cfg.color}`}>{cfg.label}</span>
-                <p className="mt-1 text-2xl font-bold text-slate-900">{stats.byEstado[e] || 0}</p>
+                <span className={`text-[10px] font-semibold ${cfg.color}`}>{cfg.label}</span>
+                <p className="mt-1 text-2xl font-bold text-slate-900">{byEstado[e] || 0}</p>
               </div>
             );
           })}
@@ -142,22 +163,26 @@ export default function JefeDashboard() {
             </div>
             <div className="space-y-1.5">
               {recientes.map(o => {
-                const cli = Store.getClienteById(o.clienteId);
-                const cfg = ESTADO_CONFIG[o.estado];
+                const cfg = ESTADO_CONFIG[o.estado as EstadoOrden] || ESTADO_CONFIG.cotizado;
                 return (
                   <Link key={o.id} to={`/jefe/ordenes/${o.id}`}
                     className="flex items-center justify-between rounded-lg border border-transparent px-3 py-2.5 transition hover:border-slate-200 hover:bg-slate-50">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800">{o.id}</p>
-                      <p className="truncate text-xs text-slate-400">{cli?.nombre} · {o.productos.length} prod. · {o.fechaCreacion}</p>
+                      <p className="text-sm font-semibold text-slate-800">#{o.numero}</p>
+                      <p className="truncate text-xs text-slate-400">
+                        {o.cliente_nombre || '—'} · {o.productos?.length || 0} prod. · {fmtDate(o.created_at)}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
-                      <span className="text-sm font-semibold text-slate-700">{fmt(o.precioTotal)}</span>
+                      <span className="text-sm font-semibold text-slate-700">{fmt(o.precio_total)}</span>
                     </div>
                   </Link>
                 );
               })}
+              {recientes.length === 0 && (
+                <p className="py-4 text-center text-sm text-slate-400">Sin órdenes aún</p>
+              )}
             </div>
           </div>
         </div>

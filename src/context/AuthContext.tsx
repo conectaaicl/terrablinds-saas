@@ -1,81 +1,158 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import type { Usuario, Tenant } from '../types';
-import { Store } from '../data/store';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import type { Rol } from '../types';
+import { api, setAccessToken } from '../services/api';
+
+interface AuthUser {
+  id: number;
+  nombre: string;
+  email: string;
+  rol: Rol;
+  tenantId: string;
+  activo: boolean;
+}
+
+interface TenantBranding {
+  primaryColor: string;
+  primaryLight: string;
+  primaryDark: string;
+  sidebarBg: string;
+  sidebarText: string;
+  logoEmoji: string;
+  slogan: string;
+}
+
+interface AuthTenant {
+  nombre: string;
+  branding: TenantBranding;
+}
 
 interface AuthCtx {
-  user: Usuario | null;
-  tenant: Tenant | null;
-  login: (email: string, password: string) => boolean;
+  user: AuthUser | null;
+  tenant: AuthTenant | null;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   refreshTenant: () => void;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthCtx>({
-  user: null, tenant: null,
-  login: () => false,
+  user: null,
+  tenant: null,
+  login: async () => false,
   logout: () => {},
   refreshTenant: () => {},
+  loading: true,
 });
 
-function loadSession(): { user: Usuario; tenant: Tenant | null } | null {
-  try {
-    const raw = localStorage.getItem('wl_session');
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    // Validate that the stored session has proper structure
-    if (!parsed?.user?.id || !parsed?.user?.email || !parsed?.user?.rol) {
-      localStorage.removeItem('wl_session');
-      return null;
-    }
-    // Re-validate user still exists in store
-    const freshUser = Store.getUsuarioById(parsed.user.id);
-    if (!freshUser || !freshUser.activo) {
-      localStorage.removeItem('wl_session');
-      return null;
-    }
-    const tenant = freshUser.rol === 'superadmin' ? null : Store.getTenantById(freshUser.tenantId) || null;
-    return { user: freshUser, tenant };
-  } catch {
-    localStorage.removeItem('wl_session');
-    return null;
-  }
+function mapUser(u: any): AuthUser {
+  return {
+    id: u.id,
+    nombre: u.nombre,
+    email: u.email,
+    rol: u.rol as Rol,
+    tenantId: u.tenant_id || '',
+    activo: u.activo,
+  };
+}
+
+function mapTenant(branding: any, nombre: string): AuthTenant {
+  return { nombre, branding };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<{ user: Usuario; tenant: Tenant | null } | null>(loadSession);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [tenant, setTenant] = useState<AuthTenant | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = useCallback((email: string, password: string) => {
-    const u = Store.login(email, password);
-    if (u) {
-      const t = u.rol === 'superadmin' ? null : Store.getTenantById(u.tenantId) || null;
-      const sess = { user: u, tenant: t };
-      setSession(sess);
-      localStorage.setItem('wl_session', JSON.stringify(sess));
+  // Restaurar sesión al cargar (refresh token en localStorage)
+  useEffect(() => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) {
+      setLoading(false);
+      return;
+    }
+
+    api.refreshToken(refreshToken)
+      .then(data => {
+        setAccessToken(data.access_token);
+        localStorage.setItem('refresh_token', data.refresh_token);
+        setUser(mapUser(data.user));
+        if (data.tenant_branding) {
+          setTenant(mapTenant(data.tenant_branding, data.tenant_nombre || ''));
+        }
+        // Cargar datos completos del usuario
+        return api.getMe();
+      })
+      .then(me => {
+        if (me) {
+          setUser(mapUser(me));
+          if (me.tenant_branding) {
+            setTenant(mapTenant(me.tenant_branding, me.tenant_nombre || ''));
+          }
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        localStorage.removeItem('refresh_token');
+        setAccessToken(null);
+        setLoading(false);
+      });
+  }, []);
+
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    try {
+      const data = await api.login(email, password);
+      setAccessToken(data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+      setUser(mapUser(data.user));
+
+      if (data.tenant_branding) {
+        setTenant(mapTenant(data.tenant_branding, data.tenant_nombre || ''));
+      } else {
+        setTenant(null);
+      }
+
+      // Cargar datos completos
+      try {
+        const me = await api.getMe();
+        if (me.tenant_branding) {
+          setTenant(mapTenant(me.tenant_branding, me.tenant_nombre || ''));
+        }
+      } catch {
+        // no crítico
+      }
+
       return true;
+    } catch {
+      return false;
     }
-    return false;
   }, []);
 
-  const logout = useCallback(() => {
-    setSession(null);
-    localStorage.removeItem('wl_session');
+  const logout = useCallback(async () => {
+    // Revocar el refresh token en el servidor
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (refreshToken) {
+      await api.logout(refreshToken);
+    }
+    setUser(null);
+    setTenant(null);
+    setAccessToken(null);
+    localStorage.removeItem('refresh_token');
   }, []);
 
-  const refreshTenant = useCallback(() => {
-    if (session?.user) {
-      const t = session.user.rol === 'superadmin' ? null : Store.getTenantById(session.user.tenantId) || null;
-      const newSess = { user: session.user, tenant: t };
-      setSession(newSess);
-      localStorage.setItem('wl_session', JSON.stringify(newSess));
+  const refreshTenant = useCallback(async () => {
+    try {
+      const me = await api.getMe();
+      if (me.tenant_branding) {
+        setTenant(mapTenant(me.tenant_branding, me.tenant_nombre || ''));
+      }
+    } catch {
+      // no crítico
     }
-  }, [session]);
+  }, []);
 
   return (
-    <AuthContext.Provider value={{
-      user: session?.user || null,
-      tenant: session?.tenant || null,
-      login, logout, refreshTenant,
-    }}>
+    <AuthContext.Provider value={{ user, tenant, login, logout, refreshTenant, loading }}>
       {children}
     </AuthContext.Provider>
   );

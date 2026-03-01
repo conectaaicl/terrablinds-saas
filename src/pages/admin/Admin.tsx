@@ -1,6 +1,10 @@
-import { useState, useMemo } from 'react';
-import { Store } from '../../data/store';
-import type { Tenant, TenantBranding } from '../../types';
+import { useState } from 'react';
+import { useApi } from '../../hooks/useApi';
+import { useMutation } from '../../hooks/useMutation';
+import { api } from '../../services/api';
+import { Spinner, ErrorMessage } from '../../components/LoadingStates';
+import { ROL_CONFIG } from '../../types';
+import type { Rol } from '../../types';
 import {
   Building2, Users, ClipboardList, Plus, X, Eye, Settings,
   TrendingUp, CheckCircle2
@@ -24,35 +28,25 @@ const COLOR_PRESETS = [
 // TALLERES (TENANTS)
 // ═══════════════════════════════════════
 export function AdminTalleres() {
-  const [v, setV] = useState(0);
   const [modal, setModal] = useState(false);
-  const [editing, setEditing] = useState<Tenant | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
 
-  const tenants = useMemo(() => { void v; return Store.getTenants(); }, [v]);
+  const { data: tenants, loading, error, refetch } = useApi(() => api.getTenants());
+  const { execute: updateTenant, loading: updating } = useMutation(api.updateTenant);
 
-  const bump = () => setV(x => x + 1);
+  const tenantList: any[] = tenants || [];
 
-  const globalStats = useMemo(() => {
-    const allOrders = Store.getOrdenes();
-    const allUsers = Store.getUsuarios().filter(u => u.rol !== 'superadmin');
-    return {
-      totalTenants: tenants.length,
-      totalUsers: allUsers.length,
-      totalOrders: allOrders.length,
-      totalVentas: allOrders.reduce((s, o) => s + o.precioTotal, 0),
-    };
-  }, [tenants]);
+  const openNew = () => { setEditingId(null); setModal(true); };
+  const openEdit = (id: string) => { setEditingId(id); setModal(true); };
 
-  const openNew = () => {
-    setEditing(null);
-    setModal(true);
+  const toggleActivo = async (t: any) => {
+    await updateTenant(t.id, { activo: !t.activo });
+    refetch();
   };
 
-  const openEdit = (t: Tenant) => {
-    setEditing(t);
-    setModal(true);
-  };
+  if (loading) return <Spinner />;
+  if (error) return <ErrorMessage message={error} onRetry={refetch} />;
 
   return (
     <div className="space-y-6">
@@ -70,10 +64,10 @@ export function AdminTalleres() {
       {/* Global KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Talleres', value: globalStats.totalTenants, icon: Building2, iconBg: 'bg-rose-100', iconColor: 'text-rose-600' },
-          { label: 'Usuarios', value: globalStats.totalUsers, icon: Users, iconBg: 'bg-blue-100', iconColor: 'text-blue-600' },
-          { label: 'Órdenes', value: globalStats.totalOrders, icon: ClipboardList, iconBg: 'bg-amber-100', iconColor: 'text-amber-600' },
-          { label: 'Ventas Globales', value: fmt(globalStats.totalVentas), icon: TrendingUp, iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600' },
+          { label: 'Talleres', value: tenantList.length, icon: Building2, iconBg: 'bg-rose-100', iconColor: 'text-rose-600' },
+          { label: 'Activos', value: tenantList.filter(t => t.activo).length, icon: CheckCircle2, iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600' },
+          { label: 'Plan Pro', value: tenantList.filter(t => t.plan === 'pro').length, icon: TrendingUp, iconBg: 'bg-amber-100', iconColor: 'text-amber-600' },
+          { label: 'Trial', value: tenantList.filter(t => t.plan === 'trial').length, icon: ClipboardList, iconBg: 'bg-blue-100', iconColor: 'text-blue-600' },
         ].map(s => (
           <div key={s.label} className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-center justify-between">
@@ -87,53 +81,41 @@ export function AdminTalleres() {
 
       {/* Tenants list */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {tenants.map(t => {
-          const users = Store.getUsuariosByTenant(t.id);
-          const orders = Store.getOrdenes(t.id);
-          const completadas = orders.filter(o => o.estado === 'instalado').length;
-          const ventas = orders.reduce((s, o) => s + o.precioTotal, 0);
-
+        {tenantList.map(t => {
+          const branding = t.branding || {};
           return (
             <div key={t.id} className={`rounded-xl border bg-white shadow-sm transition hover:shadow-md ${t.activo ? 'border-slate-200' : 'border-red-200 opacity-60'}`}>
               {/* Header with brand colors */}
-              <div className="rounded-t-xl p-4" style={{ background: `linear-gradient(135deg, ${t.branding.primaryColor}22, ${t.branding.primaryLight}22)` }}>
+              <div className="rounded-t-xl p-4" style={{ background: `linear-gradient(135deg, ${branding.primaryColor || '#e11d48'}22, ${branding.primaryLight || '#fb7185'}22)` }}>
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl"
-                    style={{ background: `linear-gradient(135deg, ${t.branding.primaryLight}, ${t.branding.primaryColor})` }}>
-                    {t.branding.logoEmoji}
+                    style={{ background: `linear-gradient(135deg, ${branding.primaryLight || '#fb7185'}, ${branding.primaryColor || '#e11d48'})` }}>
+                    {branding.logoEmoji || '🏭'}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-slate-800">{t.nombre}</p>
-                    <p className="truncate text-xs text-slate-500">{t.branding.slogan}</p>
+                    <p className="truncate text-xs text-slate-500">{branding.slogan || t.slug}</p>
                   </div>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                     t.plan === 'pro' ? 'bg-amber-100 text-amber-700' :
                     t.plan === 'basico' ? 'bg-blue-100 text-blue-700' :
                     'bg-slate-100 text-slate-600'
                   }`}>
-                    {t.plan.toUpperCase()}
+                    {(t.plan || 'trial').toUpperCase()}
                   </span>
                 </div>
               </div>
 
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-2 px-4 py-3">
-                <div className="text-center">
-                  <p className="text-lg font-bold text-slate-800">{users.length}</p>
-                  <p className="text-[10px] text-slate-400">Usuarios</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-slate-800">{orders.length}</p>
-                  <p className="text-[10px] text-slate-400">Órdenes</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-slate-800">{completadas}</p>
-                  <p className="text-[10px] text-slate-400">Instaladas</p>
-                </div>
-              </div>
-
-              <div className="border-t border-slate-100 px-4 py-2">
-                <p className="text-xs text-slate-500">Ventas: <span className="font-semibold text-slate-700">{fmt(ventas)}</span></p>
+              {/* Info */}
+              <div className="px-4 py-3">
+                <p className="text-xs text-slate-500">
+                  Slug: <span className="font-mono text-slate-700">{t.slug}</span>
+                </p>
+                {t.fecha_creacion && (
+                  <p className="text-xs text-slate-400">
+                    Creado: {new Date(t.fecha_creacion).toLocaleDateString('es-CL')}
+                  </p>
+                )}
               </div>
 
               {/* Actions */}
@@ -142,11 +124,11 @@ export function AdminTalleres() {
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
                   <Eye size={13} /> Ver
                 </button>
-                <button onClick={() => openEdit(t)}
+                <button onClick={() => openEdit(t.id)}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
                   <Settings size={13} /> Editar
                 </button>
-                <button onClick={() => { Store.updateTenant(t.id, { activo: !t.activo }); bump(); }}
+                <button onClick={() => toggleActivo(t)} disabled={updating}
                   className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold ${
                     t.activo ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
                   }`}>
@@ -154,36 +136,59 @@ export function AdminTalleres() {
                 </button>
               </div>
 
-              {/* Detail expand */}
+              {/* Expand: users per tenant */}
               {detail === t.id && (
-                <div className="border-t border-slate-100 px-4 py-3">
-                  <p className="mb-2 text-[11px] font-semibold uppercase text-slate-400">Usuarios del Taller</p>
-                  <div className="space-y-1">
-                    {users.map(u => (
-                      <div key={u.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5">
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-slate-700">{u.nombre}</p>
-                          <p className="truncate text-[10px] text-slate-400">{u.email}</p>
-                        </div>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                          u.rol === 'jefe' ? 'bg-amber-100 text-amber-700' :
-                          u.rol === 'vendedor' ? 'bg-blue-100 text-blue-700' :
-                          u.rol === 'fabricante' ? 'bg-emerald-100 text-emerald-700' :
-                          'bg-violet-100 text-violet-700'
-                        }`}>{u.rol}</span>
-                      </div>
-                    ))}
-                    {users.length === 0 && <p className="text-xs text-slate-400">Sin usuarios</p>}
-                  </div>
-                </div>
+                <TenantUsersPanel tenantId={t.id} />
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Modal: New/Edit Tenant */}
-      {modal && <TenantModal tenant={editing} onClose={() => setModal(false)} onSave={bump} />}
+      {modal && (
+        <TenantModal
+          tenantId={editingId}
+          tenants={tenantList}
+          onClose={() => setModal(false)}
+          onSave={refetch}
+        />
+      )}
+    </div>
+  );
+}
+
+// Subpanel que carga usuarios de un tenant específico
+function TenantUsersPanel({ tenantId }: { tenantId: string }) {
+  const { data: users, loading } = useApi(
+    () => api.getUsers(tenantId),
+    [tenantId]
+  );
+  const userList: any[] = users || [];
+
+  return (
+    <div className="border-t border-slate-100 px-4 py-3">
+      <p className="mb-2 text-[11px] font-semibold uppercase text-slate-400">Usuarios del Taller</p>
+      {loading ? (
+        <p className="text-xs text-slate-400">Cargando...</p>
+      ) : (
+        <div className="space-y-1">
+          {userList.map(u => {
+            const rc = ROL_CONFIG[u.rol as Rol] || ROL_CONFIG.vendedor;
+            return (
+              <div key={u.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-slate-700">{u.nombre}</p>
+                  <p className="truncate text-[10px] text-slate-400">{u.email}</p>
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${rc.bg}`}>
+                  {u.rol}
+                </span>
+              </div>
+            );
+          })}
+          {userList.length === 0 && <p className="text-xs text-slate-400">Sin usuarios</p>}
+        </div>
+      )}
     </div>
   );
 }
@@ -191,26 +196,33 @@ export function AdminTalleres() {
 // ═══════════════════════════════════════
 // TENANT MODAL (Create / Edit)
 // ═══════════════════════════════════════
-function TenantModal({ tenant, onClose, onSave }: { tenant: Tenant | null; onClose: () => void; onSave: () => void }) {
+function TenantModal({ tenantId, tenants, onClose, onSave }: {
+  tenantId: string | null;
+  tenants: any[];
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const tenant = tenants.find(t => t.id === tenantId) || null;
   const [nombre, setNombre] = useState(tenant?.nombre || '');
   const [slug, setSlug] = useState(tenant?.slug || '');
-  const [slogan, setSlogan] = useState(tenant?.branding.slogan || '');
-  const [plan, setPlan] = useState<Tenant['plan']>(tenant?.plan || 'trial');
-  const [emoji, setEmoji] = useState(tenant?.branding.logoEmoji || '🏭');
+  const [slogan, setSlogan] = useState(tenant?.branding?.slogan || '');
+  const [plan, setPlan] = useState<'trial' | 'basico' | 'pro'>(tenant?.plan || 'trial');
+  const [emoji, setEmoji] = useState(tenant?.branding?.logoEmoji || '🏭');
   const [colorPreset, setColorPreset] = useState(0);
 
+  const { execute: createTenant, loading: creating, error: createErr } = useMutation(api.createTenant);
+  const { execute: updateTenant, loading: updating, error: updateErr } = useMutation(api.updateTenant);
+
   const preset = COLOR_PRESETS[colorPreset];
-  const branding: TenantBranding = tenant ? {
+  const branding = tenant ? {
     ...tenant.branding,
     slogan,
     logoEmoji: emoji,
-    ...(colorPreset >= 0 ? {
-      primaryColor: preset.primary,
-      primaryLight: preset.light,
-      primaryDark: preset.dark,
-      sidebarBg: preset.sidebar,
-      sidebarText: preset.sidebarText,
-    } : {}),
+    primaryColor: preset.primary,
+    primaryLight: preset.light,
+    primaryDark: preset.dark,
+    sidebarBg: preset.sidebar,
+    sidebarText: preset.sidebarText,
   } : {
     primaryColor: preset.primary,
     primaryLight: preset.light,
@@ -221,29 +233,19 @@ function TenantModal({ tenant, onClose, onSave }: { tenant: Tenant | null; onClo
     slogan,
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (tenant) {
-      Store.updateTenant(tenant.id, { nombre, slug, branding, plan });
+      const res = await updateTenant(tenant.id, { nombre, slug, branding, plan });
+      if (res) { onSave(); onClose(); }
     } else {
-      const t = Store.addTenant({
-        nombre, slug, branding, activo: true,
-        fechaCreacion: new Date().toISOString().split('T')[0],
-        plan,
-      });
-      // Create default Jefe
-      Store.addUsuario({
-        nombre: `Admin ${nombre}`,
-        email: `admin@${slug}.cl`,
-        password: '1234',
-        rol: 'jefe',
-        tenantId: t.id,
-        activo: true,
-      });
+      const res = await createTenant({ nombre, slug, branding, activo: true, plan });
+      if (res) { onSave(); onClose(); }
     }
-    onSave();
-    onClose();
   };
+
+  const loading = creating || updating;
+  const err = createErr || updateErr;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -253,16 +255,20 @@ function TenantModal({ tenant, onClose, onSave }: { tenant: Tenant | null; onClo
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
         </div>
 
+        {err && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
+
         <form onSubmit={submit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">Nombre</label>
-              <input value={nombre} onChange={e => { setNombre(e.target.value); if (!tenant) setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '')); }}
+              <input value={nombre}
+                onChange={e => { setNombre(e.target.value); if (!tenant) setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '')); }}
                 required className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500" placeholder="Mi Taller" />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">Slug (URL)</label>
-              <input value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+              <input value={slug}
+                onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
                 required className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500" placeholder="mitaller" />
             </div>
           </div>
@@ -275,7 +281,7 @@ function TenantModal({ tenant, onClose, onSave }: { tenant: Tenant | null; onClo
 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">Plan</label>
-            <select value={plan} onChange={e => setPlan(e.target.value as Tenant['plan'])}
+            <select value={plan} onChange={e => setPlan(e.target.value as 'trial' | 'basico' | 'pro')}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500">
               <option value="trial">Trial</option>
               <option value="basico">Básico</option>
@@ -331,10 +337,12 @@ function TenantModal({ tenant, onClose, onSave }: { tenant: Tenant | null; onClo
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
-              className="flex-1 rounded-lg border border-slate-300 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
-            <button type="submit"
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-500 py-2 text-sm font-semibold text-white hover:bg-rose-600">
-              <CheckCircle2 size={15} /> {tenant ? 'Guardar' : 'Crear Taller'}
+              className="flex-1 rounded-lg border border-slate-300 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button type="submit" disabled={loading}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-500 py-2 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-60">
+              <CheckCircle2 size={15} /> {loading ? 'Guardando...' : (tenant ? 'Guardar' : 'Crear Taller')}
             </button>
           </div>
         </form>
@@ -344,65 +352,93 @@ function TenantModal({ tenant, onClose, onSave }: { tenant: Tenant | null; onClo
 }
 
 // ═══════════════════════════════════════
-// ADMIN USUARIOS (global)
+// ADMIN USUARIOS (global - por tenant)
 // ═══════════════════════════════════════
 export function AdminUsuarios() {
-  const [v, setV] = useState(0);
-  const usuarios = useMemo(() => { void v; return Store.getUsuarios().filter(u => u.rol !== 'superadmin'); }, [v]);
-  const tenants = useMemo(() => Store.getTenants(), []);
+  const [selectedTenant, setSelectedTenant] = useState<string>('');
 
-  const toggle = (id: string, activo: boolean) => {
-    Store.updateUsuario(id, { activo: !activo });
-    setV(x => x + 1);
+  const { data: tenants, loading: loadingTenants } = useApi(() => api.getTenants());
+  const { data: users, loading: loadingUsers, refetch } = useApi(
+    () => selectedTenant ? api.getUsers(selectedTenant) : Promise.resolve([]),
+    [selectedTenant]
+  );
+  const { execute: toggleUser } = useMutation(api.toggleUser);
+
+  const tenantList: any[] = tenants || [];
+  const userList: any[] = users || [];
+
+  const toggle = async (id: number) => {
+    await toggleUser(id);
+    refetch();
   };
-
-  const getTenantName = (tid: string) => tenants.find(t => t.id === tid)?.nombre || tid;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Todos los Usuarios</h1>
-        <p className="text-sm text-slate-500">{usuarios.length} usuarios en la plataforma</p>
+        <h1 className="text-2xl font-bold text-slate-900">Usuarios</h1>
+        <p className="text-sm text-slate-500">Selecciona un taller para ver sus usuarios</p>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-              <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="hidden px-4 py-3 md:table-cell">Taller</th>
-              <th className="px-4 py-3">Rol</th>
-              <th className="px-4 py-3">Estado</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {usuarios.map(u => (
-              <tr key={u.id} className="transition hover:bg-slate-50">
-                <td className="px-4 py-3 font-medium text-slate-800">{u.nombre}</td>
-                <td className="px-4 py-3 text-slate-500">{u.email}</td>
-                <td className="hidden px-4 py-3 text-slate-500 md:table-cell">{getTenantName(u.tenantId)}</td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                    u.rol === 'jefe' ? 'bg-amber-100 text-amber-700' :
-                    u.rol === 'vendedor' ? 'bg-blue-100 text-blue-700' :
-                    u.rol === 'fabricante' ? 'bg-emerald-100 text-emerald-700' :
-                    'bg-violet-100 text-violet-700'
-                  }`}>{u.rol}</span>
-                </td>
-                <td className="px-4 py-3">
-                  <button onClick={() => toggle(u.id, u.activo)}
-                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                      u.activo ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-red-50 text-red-600 hover:bg-red-100'
-                    }`}>
-                    {u.activo ? 'Activo' : 'Inactivo'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div>
+        <label className="mb-1 block text-sm font-medium text-slate-700">Filtrar por Taller</label>
+        <select
+          value={selectedTenant}
+          onChange={e => setSelectedTenant(e.target.value)}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+          disabled={loadingTenants}
+        >
+          <option value="">— Selecciona un taller —</option>
+          {tenantList.map(t => (
+            <option key={t.id} value={t.id}>{t.nombre}</option>
+          ))}
+        </select>
       </div>
+
+      {selectedTenant && (
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          {loadingUsers ? (
+            <div className="p-8 text-center text-sm text-slate-400">Cargando usuarios...</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="px-4 py-3">Nombre</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Rol</th>
+                  <th className="px-4 py-3">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {userList.map(u => {
+                  const rc = ROL_CONFIG[u.rol as Rol] || ROL_CONFIG.vendedor;
+                  return (
+                    <tr key={u.id} className="transition hover:bg-slate-50">
+                      <td className="px-4 py-3 font-medium text-slate-800">{u.nombre}</td>
+                      <td className="px-4 py-3 text-slate-500">{u.email}</td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ${rc.bg}`}>
+                          {u.rol}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => toggle(u.id)}
+                          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                            u.activo ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-red-50 text-red-600 hover:bg-red-100'
+                          }`}>
+                          {u.activo ? 'Activo' : 'Inactivo'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          {!loadingUsers && userList.length === 0 && (
+            <div className="p-8 text-center text-sm text-slate-400">Sin usuarios en este taller</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

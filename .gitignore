@@ -5,6 +5,12 @@ build/
 
 # Env
 .env
+.env.local
+
+# SSL certificates (NUNCA al repositorio)
+nginx/ssl/cloudflare-origin.crt
+nginx/ssl/cloudflare-origin.key
+nginx/ssl/*.pem
 
 # Logs
 *.log

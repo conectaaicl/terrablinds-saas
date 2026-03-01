@@ -1,25 +1,22 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Store } from '../data/store';
 import { ROL_CONFIG } from '../types';
 import type { Rol } from '../types';
 import {
   LayoutDashboard,
   ClipboardList,
   Users,
-  FileText,
-  PlusCircle,
   Factory,
   Wrench,
   LogOut,
   Menu,
   X,
-  RotateCcw,
   Building2,
   MessageCircle,
   MapPin,
   FilePlus2,
+  Ruler,
 } from 'lucide-react';
 
 type NavItem = { to: string; label: string; icon: React.ReactNode; end?: boolean };
@@ -27,16 +24,18 @@ type NavItem = { to: string; label: string; icon: React.ReactNode; end?: boolean
 function getNav(rol: Rol): NavItem[] {
   switch (rol) {
     case 'jefe':
+    case 'gerente':
       return [
-        { to: '/jefe', label: 'Dashboard', icon: <LayoutDashboard size={19} />, end: true },
-        { to: '/jefe/ordenes', label: 'Órdenes', icon: <ClipboardList size={19} /> },
-        { to: '/jefe/usuarios', label: 'Usuarios', icon: <Users size={19} /> },
+        { to: rol === 'gerente' ? '/gerente' : '/jefe', label: 'Dashboard', icon: <LayoutDashboard size={19} />, end: true },
+        { to: rol === 'gerente' ? '/gerente/ordenes' : '/jefe/ordenes', label: 'Órdenes', icon: <ClipboardList size={19} /> },
+        { to: rol === 'gerente' ? '/gerente/usuarios' : '/jefe/usuarios', label: 'Usuarios', icon: <Users size={19} /> },
         { to: '/chat', label: 'Chat', icon: <MessageCircle size={19} className="text-emerald-400" /> },
       ];
     case 'vendedor':
       return [
         { to: '/vendedor', label: 'Mis Pedidos', icon: <ClipboardList size={19} />, end: true },
         { to: '/vendedor/nueva', label: 'Nueva Cotización', icon: <FilePlus2 size={19} /> },
+        { to: '/vendedor/medidas', label: 'Toma de Medidas', icon: <Ruler size={19} /> },
         { to: '/chat', label: 'Chat', icon: <MessageCircle size={19} className="text-emerald-400" /> },
       ];
     case 'fabricante':
@@ -62,10 +61,6 @@ function getNav(rol: Rol): NavItem[] {
         { to: '/admin/usuarios', label: 'Usuarios', icon: <Users size={19} /> },
         { to: '/chat', label: 'Chat', icon: <MessageCircle size={19} className="text-emerald-400" /> },
       ];
-      return [
-        { to: '/admin',           label: 'Talleres',  icon: <Building2 size={19} />, end: true },
-        { to: '/admin/usuarios',  label: 'Usuarios',  icon: <Users size={19} /> },
-      ];
     default:
       return [];
   }
@@ -74,7 +69,6 @@ function getNav(rol: Rol): NavItem[] {
 export default function Layout() {
   const { user, tenant, logout } = useAuth();
   const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
 
   // Apply tenant branding as CSS custom properties
   useEffect(() => {
@@ -98,14 +92,6 @@ export default function Layout() {
   if (!user) return null;
   const items = getNav(user.rol);
   const rc = ROL_CONFIG[user.rol] || { label: user.rol, bg: 'bg-slate-500', color: 'text-slate-700' };
-
-  const handleReset = () => {
-    if (confirm('¿Restaurar todos los datos de demo? Se perderán los cambios.')) {
-      Store.resetData();
-      logout();
-      navigate('/login');
-    }
-  };
 
   const initials = (user.nombre || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   const brandName = user.rol === 'superadmin' ? 'WorkShopOS' : (tenant?.nombre || 'Taller');
@@ -180,11 +166,6 @@ export default function Layout() {
 
         {/* Bottom */}
         <div className="space-y-0.5 px-3 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          <button onClick={handleReset}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors hover:bg-white/5"
-            style={{ color: 'var(--sidebar-text)' }}>
-            <RotateCcw size={17} /> Restaurar Demo
-          </button>
           <button onClick={logout}
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors hover:bg-white/5 hover:text-white"
             style={{ color: 'var(--sidebar-text)' }}>

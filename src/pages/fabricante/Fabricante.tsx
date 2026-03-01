@@ -1,25 +1,34 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Store } from '../../data/store';
 import { useAuth } from '../../context/AuthContext';
+import { useApi } from '../../hooks/useApi';
+import { useMutation } from '../../hooks/useMutation';
+import { api } from '../../services/api';
 import { ESTADO_CONFIG } from '../../types';
 import type { EstadoOrden } from '../../types';
+import { Spinner, ErrorMessage } from '../../components/LoadingStates';
 import {
   Factory, ChevronRight, ArrowLeft, Ruler, Palette,
   CheckCircle2, AlertTriangle, Clock, User
 } from 'lucide-react';
 
-export function ColaProduccion() {
-  const { user } = useAuth();
+const fmtDate = (s: string) => s ? new Date(s).toLocaleDateString('es-CL') : '—';
 
-  const ordenes = useMemo(() => {
-    return Store.getOrdenes(user?.tenantId).filter(o =>
-      o.fabricanteId === user?.id && ['en_fabricacion', 'listo', 'problema'].includes(o.estado)
-    );
-  }, [user]);
+// ═══════════════════════════════════════════════
+// COLA DE PRODUCCIÓN
+// ═══════════════════════════════════════════════
+export function ColaProduccion() {
+  const { data: orders, loading, error, refetch } = useApi(() => api.getMyOrders());
+
+  if (loading) return <Spinner />;
+  if (error) return <ErrorMessage message={error} onRetry={refetch} />;
+
+  const ordenes: any[] = (orders || []).filter((o: any) =>
+    ['en_fabricacion', 'fabricado', 'problema'].includes(o.estado)
+  );
 
   const enFab = ordenes.filter(o => o.estado === 'en_fabricacion');
-  const listos = ordenes.filter(o => o.estado === 'listo');
+  const fabricados = ordenes.filter(o => o.estado === 'fabricado');
   const problemas = ordenes.filter(o => o.estado === 'problema');
 
   return (
@@ -31,14 +40,14 @@ export function ColaProduccion() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <Stat icon={Factory} iconBg="bg-amber-100" iconColor="text-amber-600" value={enFab.length} label="En Fabricación" />
-        <Stat icon={CheckCircle2} iconBg="bg-emerald-100" iconColor="text-emerald-600" value={listos.length} label="Listos" />
+        <Stat icon={CheckCircle2} iconBg="bg-lime-100" iconColor="text-lime-600" value={fabricados.length} label="Fabricados" />
         {problemas.length > 0 && (
           <Stat icon={AlertTriangle} iconBg="bg-red-100" iconColor="text-red-600" value={problemas.length} label="Problemas" />
         )}
       </div>
 
       <Section title="En Fabricación" borderColor="border-l-amber-400" items={enFab} iconBg="bg-amber-100" iconColor="text-amber-600" />
-      <Section title="Listos" borderColor="border-l-emerald-400" items={listos} iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+      <Section title="Fabricados" borderColor="border-l-lime-400" items={fabricados} iconBg="bg-lime-100" iconColor="text-lime-600" />
       {problemas.length > 0 && (
         <Section title="Con Problemas" borderColor="border-l-red-400" items={problemas} iconBg="bg-red-100" iconColor="text-red-600" />
       )}
@@ -70,7 +79,7 @@ function Stat({ icon: Icon, iconBg, iconColor, value, label }: {
 }
 
 function Section({ title, borderColor, items, iconBg, iconColor }: {
-  title: string; borderColor: string; items: { id: string; productos: { id: string }[]; fechaCreacion: string }[]; iconBg: string; iconColor: string;
+  title: string; borderColor: string; items: any[]; iconBg: string; iconColor: string;
 }) {
   if (items.length === 0) return null;
   return (
@@ -85,8 +94,8 @@ function Section({ title, borderColor, items, iconBg, iconColor }: {
                 <Factory size={17} className={iconColor} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-800">{o.id}</p>
-                <p className="text-xs text-slate-500">{o.productos.length} producto(s) · {o.fechaCreacion}</p>
+                <p className="text-sm font-semibold text-slate-800">#{o.numero}</p>
+                <p className="text-xs text-slate-500">{o.productos?.length || 0} producto(s) · {fmtDate(o.created_at)}</p>
               </div>
             </div>
             <ChevronRight size={16} className="text-slate-300" />
@@ -97,28 +106,40 @@ function Section({ title, borderColor, items, iconBg, iconColor }: {
   );
 }
 
+// ═══════════════════════════════════════════════
+// DETALLE TÉCNICO
+// ═══════════════════════════════════════════════
 export function DetalleTecnico() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { user } = useAuth();
-  const [v, setV] = useState(0);
+  const numId = Number(id);
 
-  const orden = useMemo(() => { void v; return id ? Store.getOrdenById(id) : undefined; }, [id, v]);
+  const { data: orden, loading, error, refetch } = useApi(
+    () => api.getOrder(numId),
+    [numId]
+  );
 
-  const marcarListo = useCallback(() => {
-    if (!orden || !user) return;
-    Store.cambiarEstado(orden.id, 'listo', user);
-    setV(x => x + 1);
-  }, [orden, user]);
+  const { execute: cambiarEstado, loading: changing } = useMutation(
+    (estado: string, notas?: string) => api.changeEstado(numId, estado, notas)
+  );
 
-  const problema = useCallback(() => {
-    if (!orden || !user) return;
-    Store.cambiarEstado(orden.id, 'problema', user);
-    setV(x => x + 1);
-  }, [orden, user]);
+  const marcarFabricado = useCallback(async () => {
+    const res = await cambiarEstado('fabricado');
+    if (res) refetch();
+  }, [cambiarEstado, refetch]);
 
+  const reportarProblema = useCallback(async () => {
+    const notas = prompt('Describe el problema:');
+    if (!notas) return;
+    const res = await cambiarEstado('problema', notas);
+    if (res) refetch();
+  }, [cambiarEstado, refetch]);
+
+  if (loading) return <Spinner />;
+  if (error) return <ErrorMessage message={error} onRetry={refetch} />;
   if (!orden) return <div className="py-20 text-center text-slate-400">Orden no encontrada</div>;
-  const cfg = ESTADO_CONFIG[orden.estado];
+
+  const cfg = ESTADO_CONFIG[orden.estado as EstadoOrden] || ESTADO_CONFIG.cotizado;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -128,20 +149,24 @@ export function DetalleTecnico() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{orden.id}</h1>
+          <h1 className="text-2xl font-bold text-slate-900">#{orden.numero}</h1>
           <p className="text-sm text-slate-500">Ficha Técnica de Producción</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-sm font-semibold ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-4 text-base font-semibold text-slate-900">Productos a Fabricar ({orden.productos.length})</h2>
+        <h2 className="mb-4 text-base font-semibold text-slate-900">
+          Productos a Fabricar ({orden.productos?.length || 0})
+        </h2>
         <div className="space-y-4">
-          {orden.productos.map((p, i) => (
-            <div key={p.id} className="rounded-lg border-2 border-dashed border-slate-200 p-4">
+          {(orden.productos || []).map((p: any, i: number) => (
+            <div key={p.id || i} className="rounded-lg border-2 border-dashed border-slate-200 p-4">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-800">{i + 1}. {p.tipo}</h3>
-                <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-mono text-slate-500">#{p.id.slice(-6)}</span>
+                {p.id && (
+                  <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-mono text-slate-500">#{p.id.toString().slice(-6)}</span>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg bg-blue-50 p-3">
@@ -163,26 +188,37 @@ export function DetalleTecnico() {
                   <p className="text-xs text-yellow-800">📝 {p.notas}</p>
                 </div>
               )}
+              {p.ubicacion && (
+                <p className="mt-1.5 text-xs text-slate-500">📍 {p.ubicacion}</p>
+              )}
+              {p.accionamiento && (
+                <p className="mt-1 text-xs text-slate-500">⚙️ {p.accionamiento}</p>
+              )}
             </div>
           ))}
         </div>
       </div>
 
+      {/* Historial */}
       <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-900"><Clock size={16} /> Historial</h2>
+        <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-900">
+          <Clock size={16} /> Historial
+        </h2>
         <div className="space-y-0">
-          {[...orden.historial].reverse().map((h, i) => {
-            const c = ESTADO_CONFIG[h.estado as EstadoOrden];
+          {[...(orden.historial || [])].reverse().map((h: any, i: number) => {
+            const c = ESTADO_CONFIG[h.estado as EstadoOrden] || ESTADO_CONFIG.cotizado;
             return (
               <div key={i} className="flex gap-3">
                 <div className="flex flex-col items-center">
                   <div className={`mt-0.5 h-2.5 w-2.5 rounded-full ${i === 0 ? c.dot : 'bg-slate-300'}`} />
-                  {i < orden.historial.length - 1 && <div className="h-full w-px bg-slate-200" />}
+                  {i < (orden.historial?.length || 0) - 1 && <div className="h-full w-px bg-slate-200" />}
                 </div>
                 <div className="pb-3">
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${c.bg} ${c.color}`}>{c.label}</span>
-                  <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500"><User size={10} />{h.usuarioNombre}</p>
-                  <p className="text-[11px] text-slate-400">{h.fecha}</p>
+                  <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
+                    <User size={10} />{h.usuario_nombre}
+                  </p>
+                  <p className="text-[11px] text-slate-400">{fmtDate(h.fecha)}</p>
                 </div>
               </div>
             );
@@ -192,13 +228,13 @@ export function DetalleTecnico() {
 
       {orden.estado === 'en_fabricacion' && (
         <div className="flex gap-3">
-          <button onClick={problema}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100">
+          <button onClick={reportarProblema} disabled={changing}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-60">
             <AlertTriangle size={17} /> Problema
           </button>
-          <button onClick={marcarListo}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600">
-            <CheckCircle2 size={17} /> Listo
+          <button onClick={marcarFabricado} disabled={changing}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-lime-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-lime-600 disabled:opacity-60">
+            <CheckCircle2 size={17} /> Fabricado
           </button>
         </div>
       )}
