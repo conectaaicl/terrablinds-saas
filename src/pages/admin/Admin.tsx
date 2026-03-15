@@ -7,7 +7,7 @@ import { ROL_CONFIG } from '../../types';
 import type { Rol } from '../../types';
 import {
   Building2, ClipboardList, Plus, X, Eye, Settings,
-  TrendingUp, CheckCircle2
+  TrendingUp, CheckCircle2, KeyRound, Copy, Check,
 } from 'lucide-react';
 
 
@@ -162,11 +162,36 @@ function TenantUsersPanel({ tenantId }: { tenantId: string }) {
     () => api.getUsers(tenantId),
     [tenantId]
   );
+  const [resetResult, setResetResult] = useState<{ email: string; password: string } | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const { execute: resetPwd, loading: resetting } = useMutation(api.resetUserPassword);
   const userList: any[] = users || [];
+
+  const handleReset = async (u: any) => {
+    const res = await resetPwd(u.id);
+    if (res) setResetResult({ email: u.email, password: res.new_password });
+  };
+
+  const copyEmail = (id: number, email: string) => {
+    navigator.clipboard.writeText(email).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
 
   return (
     <div className="border-t border-slate-100 px-4 py-3">
       <p className="mb-2 text-[11px] font-semibold uppercase text-slate-400">Usuarios del Taller</p>
+
+      {resetResult && (
+        <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <p className="text-[11px] font-bold text-amber-700 mb-1">Contraseña reseteada</p>
+          <p className="font-mono text-[11px] text-amber-900">{resetResult.email}</p>
+          <p className="font-mono text-sm font-bold text-amber-900">{resetResult.password}</p>
+          <button onClick={() => setResetResult(null)} className="mt-1 text-[10px] text-amber-600 underline">cerrar</button>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-xs text-slate-400">Cargando...</p>
       ) : (
@@ -174,14 +199,29 @@ function TenantUsersPanel({ tenantId }: { tenantId: string }) {
           {userList.map(u => {
             const rc = ROL_CONFIG[u.rol as Rol] || ROL_CONFIG.vendedor;
             return (
-              <div key={u.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5">
-                <div className="min-w-0">
+              <div key={u.id} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-1.5">
+                <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium text-slate-700">{u.nombre}</p>
-                  <p className="truncate text-[10px] text-slate-400">{u.email}</p>
+                  <button
+                    onClick={() => copyEmail(u.id, u.email)}
+                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-600 transition-colors"
+                    title="Copiar email"
+                  >
+                    {copiedId === u.id ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
+                    <span className="truncate">{u.email}</span>
+                  </button>
                 </div>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${rc.bg}`}>
                   {u.rol}
                 </span>
+                <button
+                  onClick={() => handleReset(u)}
+                  disabled={resetting}
+                  title="Resetear contraseña"
+                  className="shrink-0 rounded-md bg-slate-200 p-1 text-slate-500 hover:bg-amber-100 hover:text-amber-700 transition-colors disabled:opacity-40"
+                >
+                  <KeyRound size={12} />
+                </button>
               </div>
             );
           })}
@@ -430,6 +470,9 @@ export function AdminUsuarios() {
     [selectedTenant]
   );
   const { execute: toggleUser } = useMutation(api.toggleUser);
+  const { execute: resetPwd, loading: resetting } = useMutation(api.resetUserPassword);
+  const [resetResult, setResetResult] = useState<{ email: string; password: string } | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
 
   const tenantList: any[] = tenants || [];
   const userList: any[] = users || [];
@@ -437,6 +480,18 @@ export function AdminUsuarios() {
   const toggle = async (id: number) => {
     await toggleUser(id);
     refetch();
+  };
+
+  const handleReset = async (u: any) => {
+    const res = await resetPwd(u.id);
+    if (res) setResetResult({ email: u.email, password: res.new_password });
+  };
+
+  const copyEmail = (id: number, email: string) => {
+    navigator.clipboard.writeText(email).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
   };
 
   return (
@@ -466,6 +521,18 @@ export function AdminUsuarios() {
           {loadingUsers ? (
             <div className="p-8 text-center text-sm text-slate-400">Cargando usuarios...</div>
           ) : (
+            <>
+            {resetResult && (
+              <div className="m-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <KeyRound size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                <div className="flex-1 text-sm">
+                  <p className="font-semibold text-amber-800">Contraseña restablecida</p>
+                  <p className="text-amber-700">{resetResult.email}</p>
+                  <p className="mt-1 font-mono font-bold text-amber-900">{resetResult.password}</p>
+                </div>
+                <button onClick={() => setResetResult(null)} className="text-amber-400 hover:text-amber-600"><X size={14} /></button>
+              </div>
+            )}
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -473,6 +540,7 @@ export function AdminUsuarios() {
                   <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Rol</th>
                   <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -481,7 +549,18 @@ export function AdminUsuarios() {
                   return (
                     <tr key={u.id} className="transition hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium text-slate-800">{u.nombre}</td>
-                      <td className="px-4 py-3 text-slate-500">{u.email}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-slate-500">{u.email}</span>
+                          <button
+                            onClick={() => copyEmail(u.id, u.email)}
+                            className="shrink-0 text-slate-300 transition hover:text-slate-600"
+                            title="Copiar email"
+                          >
+                            {copiedId === u.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                          </button>
+                        </div>
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ${rc.bg}`}>
                           {u.rol}
@@ -495,11 +574,22 @@ export function AdminUsuarios() {
                           {u.activo ? 'Activo' : 'Inactivo'}
                         </button>
                       </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleReset(u)}
+                          disabled={resetting}
+                          className="flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-50"
+                          title="Restablecer contraseña"
+                        >
+                          <KeyRound size={11} /> Reset pwd
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            </>
           )}
           {!loadingUsers && userList.length === 0 && (
             <div className="p-8 text-center text-sm text-slate-400">Sin usuarios en este taller</div>

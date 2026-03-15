@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import TokenData, require_roles
+from app.auth.service import hash_password
+from app.database import get_db
 from app.dependencies import get_db_for_tenant, set_tenant_context
+from app.users.repository import UserRepository
 from app.users.schemas import UserCreate, UserResponse
 from app.users.service import UserService
 
@@ -86,6 +89,23 @@ async def toggle_user(
         tenant_id=user.tenant_id or "",
         activo=user.activo,
     )
+
+
+@router.post("/{user_id}/reset-password")
+async def reset_user_password(
+    user_id: int,
+    token_data: TokenData = Depends(require_roles("superadmin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Superadmin: genera y asigna una nueva contraseña temporal a cualquier usuario."""
+    from app.tenants.service import _generate_password
+    repo = UserRepository(db)
+    user = await repo.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    new_password = _generate_password()
+    await repo.update_password(user_id, hash_password(new_password))
+    return {"user_id": user_id, "email": user.email, "new_password": new_password}
 
 
 @router.get("/by-role/{role}", response_model=list[UserResponse])

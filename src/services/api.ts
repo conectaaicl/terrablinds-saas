@@ -132,6 +132,8 @@ export const api = {
     fetchWithAuth(`/api/v1/users/${id}/toggle`, { method: 'PATCH' }),
   getUsersByRole: (role: string) =>
     fetchWithAuth(`/api/v1/users/by-role/${role}`),
+  resetUserPassword: (id: number) =>
+    fetchWithAuth(`/api/v1/users/${id}/reset-password`, { method: 'POST' }),
 
   // ── Tenants ────────────────────────────────────────────────
   getTenants: () => fetchWithAuth('/api/v1/tenants/'),
