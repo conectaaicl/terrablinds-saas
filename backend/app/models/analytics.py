@@ -64,7 +64,7 @@ class OrderEvent(Base):
     user_nombre: Mapped[str] = mapped_column(String, nullable=False, default="")
     # Minutos que la orden estuvo en from_estado antes de este cambio
     duration_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    event_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
