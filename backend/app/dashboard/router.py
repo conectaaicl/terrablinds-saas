@@ -56,11 +56,11 @@ async def dashboard_summary(
     total_mes = mes.total or 0
     ingresos_mes = mes.ingresos or 0
 
-    # Órdenes cerradas del mes
+    # Órdenes cerradas del mes (ambos nombres de estado: cerrado/cerrada)
     cerradas_result = await db.execute(
         select(func.count(Order.id)).where(
             Order.tenant_id == token_data.tenant_id,
-            Order.estado == "cerrado",
+            Order.estado.in_(["cerrado", "cerrada"]),
             Order.created_at >= mes_inicio,
         )
     )

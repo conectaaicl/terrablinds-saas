@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { Link, useParams, useNavigate, useMatch } from 'react-router-dom';
+
 import { useApi } from '../../hooks/useApi';
 import { useMutation } from '../../hooks/useMutation';
 import { api } from '../../services/api';
@@ -26,6 +26,10 @@ const fmtDate = (s: string) => s ? new Date(s).toLocaleDateString('es-CL') : '�
 // LISTA DE ÓRDENES
 // ═══════════════════════════════════════════════
 export function OrdenesLista() {
+  const isCoord = !!useMatch('/coordinador/*');
+  const isGerente = !!useMatch('/gerente/*');
+  const base = isCoord ? '/coordinador' : isGerente ? '/gerente' : '/jefe';
+
   const [search, setSearch] = useState('');
   const [filtro, setFiltro] = useState('todos');
 
@@ -95,7 +99,7 @@ export function OrdenesLista() {
                   <td className="hidden px-4 py-3 text-right font-semibold text-slate-800 sm:table-cell">{fmt(o.precio_total)}</td>
                   <td className="hidden px-4 py-3 text-slate-400 lg:table-cell">{fmtDate(o.created_at)}</td>
                   <td className="px-4 py-3">
-                    <Link to={`/jefe/ordenes/${o.id}`} className="hover:opacity-70" style={{ color: 'var(--brand-primary)' }}>
+                    <Link to={`${base}/ordenes/${o.id}`} className="hover:opacity-70" style={{ color: 'var(--brand-primary)' }}>
                       <ChevronRight size={17} />
                     </Link>
                   </td>
@@ -116,7 +120,6 @@ export function OrdenesLista() {
 export function OrdenDetalle() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { user } = useAuth();
   const numId = Number(id);
 
   const { data: orden, loading, error, refetch } = useApi(
@@ -186,7 +189,7 @@ export function OrdenDetalle() {
                 <p className="text-[11px] font-semibold uppercase text-slate-400">Fabricante</p>
                 {orden.fabricante_nombre ? (
                   <p className="mt-1 text-sm font-medium text-slate-800">{orden.fabricante_nombre}</p>
-                ) : orden.estado === 'confirmado' ? (
+                ) : ['aprobada', 'confirmado', 'en_fabricacion'].includes(orden.estado) ? (
                   <select
                     defaultValue=""
                     onChange={e => e.target.value && doAsignarFab(e.target.value)}
@@ -206,7 +209,7 @@ export function OrdenDetalle() {
                 <p className="text-[11px] font-semibold uppercase text-slate-400">Instalador</p>
                 {orden.instalador_nombre ? (
                   <p className="mt-1 text-sm font-medium text-slate-800">{orden.instalador_nombre}</p>
-                ) : orden.estado === 'fabricado' ? (
+                ) : ['listo_para_instalar', 'fabricado', 'instalacion_programada'].includes(orden.estado) ? (
                   <select
                     defaultValue=""
                     onChange={e => e.target.value && doAsignarIns(e.target.value)}
@@ -258,28 +261,44 @@ export function OrdenDetalle() {
                   <Loader2 size={18} className="animate-spin text-slate-400" />
                 </div>
               )}
-              {orden.estado === 'cotizado' && (
-                <Btn onClick={() => doChange('cotizacion_enviada')} color="blue">Enviar Cotización</Btn>
+              {/* Etapa 1: Ventas */}
+              {['cotizacion', 'cotizado'].includes(orden.estado) && (
+                <Btn onClick={() => doChange('cotizacion_enviada')} color="blue">Enviar Cotización al Cliente</Btn>
               )}
               {orden.estado === 'cotizacion_enviada' && (
-                <Btn onClick={() => doChange('confirmado')} color="blue">Confirmar Orden</Btn>
+                <Btn onClick={() => doChange('aceptada')} color="blue">Registrar Aceptación del Cliente</Btn>
               )}
-              {orden.estado === 'confirmado' && (
-                <Btn onClick={() => doChange('en_fabricacion')} color="amber">Iniciar Fabricación</Btn>
+              {orden.estado === 'aceptada' && (
+                <Btn onClick={() => doChange('ot_creada')} color="blue">Crear Orden de Trabajo</Btn>
               )}
-              {!['problema', 'cerrado', 'cancelado', 'rechazado'].includes(orden.estado) && (
+              {/* Etapa 2: Revisión */}
+              {orden.estado === 'ot_creada' && (
+                <Btn onClick={() => doChange('aprobada')} color="amber">Aprobar OT</Btn>
+              )}
+              {['aprobada', 'confirmado'].includes(orden.estado) && (
+                <Btn onClick={() => doChange('en_fabricacion')} color="amber">Enviar a Fabricación</Btn>
+              )}
+              {/* Recuperación de problema */}
+              {orden.estado === 'problema' && (
+                <Btn onClick={() => doChange('en_fabricacion')} color="blue">Reactivar → Fabricación</Btn>
+              )}
+              {/* Alertas de estado */}
+              {orden.estado === 'listo_para_instalar' && (
+                <div className="rounded-lg bg-lime-50 p-3 text-center text-xs font-medium text-lime-700">
+                  Listo · Coordinador agenda la instalación
+                </div>
+              )}
+              {/* Acciones críticas */}
+              {!['problema', 'cerrada', 'cerrado', 'cancelada', 'cancelado', 'rechazada', 'rechazado'].includes(orden.estado) && (
                 <Btn onClick={() => {
                   const notas = prompt('Describe el problema:');
                   if (notas) doChange('problema', notas);
                 }} color="red" outline>Marcar Problema</Btn>
               )}
-              {orden.estado === 'problema' && (
-                <Btn onClick={() => doChange('confirmado')} color="blue">Reactivar como Confirmado</Btn>
-              )}
-              {!['cerrado', 'cancelado', 'rechazado'].includes(orden.estado) && (
+              {!['cerrada', 'cerrado', 'cancelada', 'cancelado', 'rechazada', 'rechazado'].includes(orden.estado) && (
                 <Btn onClick={() => {
                   const notas = prompt('Motivo de cancelación:');
-                  if (notas) doChange('cancelado', notas);
+                  if (notas) doChange('cancelada', notas);
                 }} color="red" outline>Cancelar Orden</Btn>
               )}
             </div>

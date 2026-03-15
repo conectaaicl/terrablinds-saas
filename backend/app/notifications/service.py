@@ -10,10 +10,8 @@ class NotificationService:
     def __init__(self, db: AsyncSession):
         self.repo = NotificationRepository(db)
 
-    async def list_notifications(self, tenant_scope: str) -> list[Notification]:
-        if tenant_scope == "__all__":
-            return await self.repo.get_all()
-        return await self.repo.get_by_tenant(tenant_scope)
+    async def list_notifications(self, tenant_id: str) -> list[Notification]:
+        return await self.repo.get_by_tenant(tenant_id)
 
     async def create_notification(
         self, data: NotificationCreate, user: User

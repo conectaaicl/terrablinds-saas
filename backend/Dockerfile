@@ -14,7 +14,10 @@ COPY . .
 
 EXPOSE 8000
 
-# PRODUCCIÓN: solo migraciones + servidor
-# El seed de demo NO corre en producción
-# Para crear el primer superadmin: docker exec -it backend python create_superadmin.py
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --loop uvloop"]
+# Script de inicio: espera DB, aplica migraciones SQL, inicia uvicorn
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Para crear el primer superadmin:
+#   docker exec -it workshopos-backend python create_superadmin.py
+CMD ["/app/start.sh"]

@@ -6,11 +6,10 @@ import { Spinner, ErrorMessage } from '../../components/LoadingStates';
 import { ROL_CONFIG } from '../../types';
 import type { Rol } from '../../types';
 import {
-  Building2, Users, ClipboardList, Plus, X, Eye, Settings,
+  Building2, ClipboardList, Plus, X, Eye, Settings,
   TrendingUp, CheckCircle2
 } from 'lucide-react';
 
-const fmt = (n: number) => '$' + n.toLocaleString('es-CL');
 
 const EMOJI_OPTIONS = ['☀️', '🪵', '🏗️', '🏠', '🛋️', '🪟', '🎨', '🔨', '⚙️', '🏢', '🌿', '💎'];
 const COLOR_PRESETS = [
@@ -209,6 +208,9 @@ function TenantModal({ tenantId, tenants, onClose, onSave }: {
   const [plan, setPlan] = useState<'trial' | 'basico' | 'pro'>(tenant?.plan || 'trial');
   const [emoji, setEmoji] = useState(tenant?.branding?.logoEmoji || '🏭');
   const [colorPreset, setColorPreset] = useState(0);
+  const [jefeNombre, setJefeNombre] = useState('');
+  const [jefeEmail, setJefeEmail] = useState('');
+  const [createdJefe, setCreatedJefe] = useState<{ email: string; password: string } | null>(null);
 
   const { execute: createTenant, loading: creating, error: createErr } = useMutation(api.createTenant);
   const { execute: updateTenant, loading: updating, error: updateErr } = useMutation(api.updateTenant);
@@ -239,13 +241,58 @@ function TenantModal({ tenantId, tenants, onClose, onSave }: {
       const res = await updateTenant(tenant.id, { nombre, slug, branding, plan });
       if (res) { onSave(); onClose(); }
     } else {
-      const res = await createTenant({ nombre, slug, branding, activo: true, plan });
-      if (res) { onSave(); onClose(); }
+      const payload: any = { nombre, slug, branding, activo: true, plan };
+      if (jefeNombre.trim()) payload.jefe_nombre = jefeNombre.trim();
+      if (jefeEmail.trim()) payload.jefe_email = jefeEmail.trim();
+      const res = await createTenant(payload);
+      if (res) {
+        onSave();
+        if (res.jefe_password) {
+          setCreatedJefe({ email: jefeEmail.trim(), password: res.jefe_password });
+        } else {
+          onClose();
+        }
+      }
     }
   };
 
   const loading = creating || updating;
   const err = createErr || updateErr;
+
+  // Show success screen with generated credentials
+  if (createdJefe) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
+              <CheckCircle2 size={22} className="text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Taller Creado</h2>
+              <p className="text-sm text-slate-500">El usuario jefe fue creado y se le envió un email.</p>
+            </div>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+            <p className="text-xs font-semibold uppercase text-amber-700">Credenciales del Jefe</p>
+            <div>
+              <p className="text-xs text-amber-600">Email</p>
+              <p className="font-mono text-sm font-semibold text-amber-900">{createdJefe.email}</p>
+            </div>
+            <div>
+              <p className="text-xs text-amber-600">Contraseña generada</p>
+              <p className="font-mono text-sm font-bold text-amber-900">{createdJefe.password}</p>
+            </div>
+            <p className="text-[11px] text-amber-600">Guarda o comparte estas credenciales. No se mostrarán de nuevo.</p>
+          </div>
+          <button onClick={onClose}
+            className="mt-4 w-full rounded-lg bg-rose-500 py-2.5 text-sm font-semibold text-white hover:bg-rose-600">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -334,6 +381,26 @@ function TenantModal({ tenantId, tenants, onClose, onSave }: {
               </div>
             </div>
           </div>
+
+          {/* Jefe (solo en creación) */}
+          {!tenant && (
+            <div className="rounded-xl border border-slate-200 p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase text-slate-500">Usuario Jefe (opcional)</p>
+              <p className="text-[11px] text-slate-400">Si completas estos campos, se crea el jefe automáticamente y se le envía un email con sus credenciales.</p>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">Nombre del Jefe</label>
+                <input value={jefeNombre} onChange={e => setJefeNombre(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+                  placeholder="Juan Pérez" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">Email del Jefe</label>
+                <input type="email" value={jefeEmail} onChange={e => setJefeEmail(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+                  placeholder="jefe@mitaller.cl" />
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}

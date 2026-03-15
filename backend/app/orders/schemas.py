@@ -56,17 +56,36 @@ class OrderResponse(BaseModel):
 
 class EstadoChange(BaseModel):
     estado: Literal[
-        "cotizado",
+        # Etapa 1 — Ventas
+        "cotizacion",
         "cotizacion_enviada",
-        "confirmado",
+        "aceptada",
+        # Etapa 2 — OT Interna
+        "ot_creada",
+        "aprobada",
+        # Etapa 3 — Fabricación
         "en_fabricacion",
+        "listo_para_instalar",
+        # Etapa 4 — Instalación
+        "instalacion_programada",
+        "en_camino",
+        "instalando",
+        "instalacion_completada",
+        # Terminales
+        "cerrada",
+        "cancelada",
+        "rechazada",
+        # Especial
+        "problema",
+        # Compatibilidad retroactiva (estados anteriores)
+        "cotizado",
+        "confirmado",
         "fabricado",
         "agendado",
         "en_ruta",
         "en_instalacion",
         "pendiente_firma",
         "cerrado",
-        "problema",
         "cancelado",
         "rechazado",
     ]

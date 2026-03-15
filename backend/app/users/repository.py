@@ -50,6 +50,14 @@ class UserRepository:
         await self.db.flush()
         return user
 
+    async def update_password(self, user_id: int, hashed_password: str) -> None:
+        """Actualiza la contraseña de un usuario por id (sin restricción de tenant)."""
+        result = await self.db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user:
+            user.hashed_password = hashed_password
+            await self.db.flush()
+
     async def toggle_active(self, user_id: int, tenant_id: str) -> User | None:
         """
         Activa/desactiva un usuario.

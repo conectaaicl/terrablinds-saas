@@ -77,6 +77,7 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}, skipCo
     throw new Error(error.detail || `Error ${response.status}`);
   }
 
+  if (response.status === 204) return null;
   return response.json();
 }
 
@@ -114,6 +115,11 @@ export const api = {
   },
 
   getMe: () => fetchWithAuth('/api/v1/auth/me'),
+  changePassword: (current_password: string, new_password: string) =>
+    fetchWithAuth('/api/v1/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password, new_password }),
+    }),
 
   // ── Users ──────────────────────────────────────────────────
   getUsers: (targetTenantId?: string) => {
@@ -216,7 +222,72 @@ export const api = {
     return fetchWithAuth(
       `/api/v1/orders/${orderId}/photos?tipo=${tipo}`,
       { method: 'POST', body: formData },
-      true, // skipContentType — el browser setea multipart/form-data con boundary
+      true,
     );
   },
+
+  // ── Clientes — extendido ───────────────────────────────────
+  updateClient: (id: number, data: { nombre?: string; email?: string; telefono?: string; direccion?: string; rut?: string; notas?: string }) =>
+    fetchWithAuth(`/api/v1/clients/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // ── Productos / Catálogo ───────────────────────────────────
+  getProductos: (categoria?: string) => {
+    const qs = categoria ? `?categoria=${encodeURIComponent(categoria)}` : '';
+    return fetchWithAuth(`/api/v1/productos/${qs}`);
+  },
+  createProducto: (data: {
+    nombre: string; descripcion?: string; categoria: string; unidad: string;
+    precio_base: number; colores: string[]; materiales: string[]; specs?: Record<string, any>; codigo?: string;
+  }) => fetchWithAuth('/api/v1/productos/', { method: 'POST', body: JSON.stringify(data) }),
+  updateProducto: (id: string, data: any) =>
+    fetchWithAuth(`/api/v1/productos/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteProducto: (id: string) =>
+    fetchWithAuth(`/api/v1/productos/${id}`, { method: 'DELETE' }),
+
+  // ── GPS Tracking ──────────────────────────────────────────
+  sendGpsPing: (data: { lat: number; lon: number; precision_m?: number; velocidad_kmh?: number; heading?: number; order_id?: number }) =>
+    fetchWithAuth('/api/v1/gps/ping', { method: 'POST', body: JSON.stringify(data) }),
+  getActivePositions: () => fetchWithAuth('/api/v1/gps/active'),
+  getGpsHistory: (orderId: number) => fetchWithAuth(`/api/v1/gps/order/${orderId}`),
+
+  // ── Tareas Diarias ─────────────────────────────────────────
+  getTasks: (params?: { fecha?: string; asignado_a?: string; estado?: string }) => {
+    const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString() : '';
+    return fetchWithAuth(`/api/v1/tasks/${qs}`);
+  },
+  getMisTareas: (fecha?: string) => {
+    const qs = fecha ? `?fecha=${fecha}` : '';
+    return fetchWithAuth(`/api/v1/tasks/mis-tareas${qs}`);
+  },
+  createTask: (data: {
+    titulo: string; descripcion?: string; asignado_a: number;
+    fecha_tarea?: string; prioridad?: string; order_id?: number;
+  }) => fetchWithAuth('/api/v1/tasks/', { method: 'POST', body: JSON.stringify(data) }),
+  updateTask: (id: string, data: { estado?: string; notas_cierre?: string; titulo?: string; prioridad?: string }) =>
+    fetchWithAuth(`/api/v1/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteTask: (id: string) =>
+    fetchWithAuth(`/api/v1/tasks/${id}`, { method: 'DELETE' }),
+
+  // ── Checklist de instalación ─────────────────────────────
+  getChecklist: (orderId: number) => fetchWithAuth(`/api/v1/orders/${orderId}/checklist`),
+  saveChecklist: (orderId: number, items: Record<string, boolean>) =>
+    fetchWithAuth(`/api/v1/orders/${orderId}/checklist`, {
+      method: 'PUT',
+      body: JSON.stringify({ items }),
+    }),
+
+  // ── Firma digital ─────────────────────────────────────────
+  saveSignature: (orderId: number, data: {
+    firma_data: string; firmante_nombre: string; firmante_rut?: string;
+    firmante_email?: string; lat?: number; lon?: number;
+  }) => fetchWithAuth(`/api/v1/orders/${orderId}/signature`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // ── Appointments (citas de instalación) ───────────────────
+  createAppointment: (data: {
+    order_id: number; fecha_inicio: string; fecha_fin?: string;
+    direccion?: string; notas?: string; notas_cliente?: string;
+    team_id?: string; notificacion_cliente?: boolean;
+  }) => fetchWithAuth('/api/v1/coordinator/appointments', { method: 'POST', body: JSON.stringify(data) }),
+  getAppointments: () => fetchWithAuth('/api/v1/coordinator/agenda'),
+
 };

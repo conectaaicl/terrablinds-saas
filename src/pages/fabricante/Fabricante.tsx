@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+
 import { useApi } from '../../hooks/useApi';
 import { useMutation } from '../../hooks/useMutation';
 import { api } from '../../services/api';
@@ -24,11 +24,11 @@ export function ColaProduccion() {
   if (error) return <ErrorMessage message={error} onRetry={refetch} />;
 
   const ordenes: any[] = (orders || []).filter((o: any) =>
-    ['en_fabricacion', 'fabricado', 'problema'].includes(o.estado)
+    ['en_fabricacion', 'listo_para_instalar', 'problema'].includes(o.estado)
   );
 
   const enFab = ordenes.filter(o => o.estado === 'en_fabricacion');
-  const fabricados = ordenes.filter(o => o.estado === 'fabricado');
+  const fabricados = ordenes.filter(o => o.estado === 'listo_para_instalar');
   const problemas = ordenes.filter(o => o.estado === 'problema');
 
   return (
@@ -40,14 +40,14 @@ export function ColaProduccion() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <Stat icon={Factory} iconBg="bg-amber-100" iconColor="text-amber-600" value={enFab.length} label="En Fabricación" />
-        <Stat icon={CheckCircle2} iconBg="bg-lime-100" iconColor="text-lime-600" value={fabricados.length} label="Fabricados" />
+        <Stat icon={CheckCircle2} iconBg="bg-lime-100" iconColor="text-lime-600" value={fabricados.length} label="Listos para Instalar" />
         {problemas.length > 0 && (
           <Stat icon={AlertTriangle} iconBg="bg-red-100" iconColor="text-red-600" value={problemas.length} label="Problemas" />
         )}
       </div>
 
       <Section title="En Fabricación" borderColor="border-l-amber-400" items={enFab} iconBg="bg-amber-100" iconColor="text-amber-600" />
-      <Section title="Fabricados" borderColor="border-l-lime-400" items={fabricados} iconBg="bg-lime-100" iconColor="text-lime-600" />
+      <Section title="Listos para Instalar" borderColor="border-l-lime-400" items={fabricados} iconBg="bg-lime-100" iconColor="text-lime-600" />
       {problemas.length > 0 && (
         <Section title="Con Problemas" borderColor="border-l-red-400" items={problemas} iconBg="bg-red-100" iconColor="text-red-600" />
       )}
@@ -124,7 +124,7 @@ export function DetalleTecnico() {
   );
 
   const marcarFabricado = useCallback(async () => {
-    const res = await cambiarEstado('fabricado');
+    const res = await cambiarEstado('listo_para_instalar');
     if (res) refetch();
   }, [cambiarEstado, refetch]);
 
@@ -234,7 +234,7 @@ export function DetalleTecnico() {
           </button>
           <button onClick={marcarFabricado} disabled={changing}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-lime-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-lime-600 disabled:opacity-60">
-            <CheckCircle2 size={17} /> Fabricado
+            <CheckCircle2 size={17} /> Listo para Instalar
           </button>
         </div>
       )}

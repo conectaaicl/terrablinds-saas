@@ -1,14 +1,17 @@
 """
 Endpoints para coordinadores — vista de agenda semanal y gestión de equipos.
 
-  GET  /coordinator/agenda          — agenda semanal (7 días)
-  GET  /coordinator/agenda/today    — agenda de hoy con detalles
-  GET  /coordinator/orders/pending  — órdenes pendientes de agendar (estado: fabricado)
-  GET  /coordinator/teams           — equipos disponibles
+  GET  /coordinator/agenda               — agenda semanal (7 días)
+  POST /coordinator/appointments         — crear cita de instalación
+  GET  /coordinator/orders/pending       — órdenes pendientes de agendar
+  GET  /coordinator/teams                — equipos disponibles
 """
 from datetime import date, datetime, timedelta, timezone
+from typing import Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +20,91 @@ from app.dependencies import get_db_for_tenant
 from app.models.order import Order
 
 router = APIRouter(prefix="/coordinator", tags=["coordinator"])
+
+
+class AppointmentCreate(BaseModel):
+    order_id: int
+    fecha_inicio: datetime
+    fecha_fin: Optional[datetime] = None
+    direccion: Optional[str] = None
+    notas: Optional[str] = None
+    notas_cliente: Optional[str] = None
+    team_id: Optional[UUID] = None
+    notificacion_cliente: bool = False
+
+
+@router.post("/appointments", status_code=201)
+async def crear_appointment(
+    data: AppointmentCreate,
+    token_data: TokenData = Depends(require_roles("coordinador", "jefe", "gerente", "superadmin")),
+    db: AsyncSession = Depends(get_db_for_tenant),
+):
+    """
+    Crea una cita de instalación para una orden.
+    Automáticamente cambia el estado de la orden a 'instalacion_programada'.
+    """
+    # Verificar que la orden existe
+    result = await db.execute(
+        text("SELECT id, estado FROM orders WHERE id = :id AND tenant_id = :tid"),
+        {"id": data.order_id, "tid": token_data.tenant_id},
+    )
+    orden = result.fetchone()
+    if not orden:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+
+    try:
+        # Crear appointment
+        await db.execute(
+            text("""
+                INSERT INTO appointments
+                    (tenant_id, order_id, team_id, fecha_inicio, fecha_fin,
+                     direccion, notas, notas_cliente, notificacion_cliente,
+                     estado, created_by, created_at)
+                VALUES
+                    (:tid, :order_id, :team_id, :fi, :ff,
+                     :dir, :notas, :notas_cliente, :notif,
+                     'pendiente', :created_by, NOW())
+            """),
+            {
+                "tid": token_data.tenant_id,
+                "order_id": data.order_id,
+                "team_id": str(data.team_id) if data.team_id else None,
+                "fi": data.fecha_inicio,
+                "ff": data.fecha_fin,
+                "dir": data.direccion,
+                "notas": data.notas,
+                "notas_cliente": data.notas_cliente,
+                "notif": data.notificacion_cliente,
+                "created_by": str(token_data.user_id),
+            },
+        )
+
+        # Cambiar estado de la orden a instalacion_programada (si corresponde)
+        if orden.estado in ("listo_para_instalar", "fabricado", "aprobada"):
+            await db.execute(
+                text("""
+                    UPDATE orders
+                    SET estado = 'instalacion_programada', updated_at = NOW()
+                    WHERE id = :id AND tenant_id = :tid
+                """),
+                {"id": data.order_id, "tid": token_data.tenant_id},
+            )
+            # Registrar en historial
+            await db.execute(
+                text("""
+                    INSERT INTO order_history
+                        (order_id, estado, usuario_id, usuario_nombre, fecha, notas)
+                    VALUES (:oid, 'instalacion_programada', :uid, 'Coordinador', NOW(), 'Instalación agendada')
+                """),
+                {"oid": data.order_id, "uid": str(token_data.user_id)},
+            )
+
+        await db.commit()
+        return {"ok": True, "message": "Cita creada y orden actualizada"}
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al crear cita: {str(e)}")
 
 
 @router.get("/agenda")
@@ -117,7 +205,7 @@ async def orders_pending_schedule(
     result = await db.execute(
         select(Order).where(
             Order.tenant_id == token_data.tenant_id,
-            Order.estado == "fabricado",
+            Order.estado.in_(["fabricado", "listo_para_instalar"]),
         ).order_by(Order.created_at)
     )
     orders = result.scalars().all()

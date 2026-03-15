@@ -17,11 +17,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from pydantic import BaseModel
+
 from app.auth.dependencies import get_current_user, get_token_data
 from app.auth.schemas import LoginRequest, RefreshRequest, TokenResponse
-from app.auth.service import create_access_token, verify_password
+from app.auth.service import create_access_token, hash_password, verify_password
 from app.auth.token_store import RefreshTokenStore, get_redis
 from app.database import get_db
+from app.users.repository import UserRepository
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
@@ -191,6 +194,48 @@ async def logout(
     redis = await get_redis()
     store = RefreshTokenStore(redis)
     await store.revoke(body.refresh_token)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/change-password", status_code=204)
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cambia la contraseña del usuario autenticado."""
+    # Verificar contraseña actual
+    result = await db.execute(
+        text("SELECT * FROM auth_lookup_user_by_id(:uid)"),
+        {"uid": current_user.id},
+    )
+    user_row = result.fetchone()
+    if user_row is None or not verify_password(body.current_password, user_row.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La contraseña actual es incorrecta",
+        )
+
+    if len(body.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La nueva contraseña debe tener al menos 6 caracteres",
+        )
+
+    # Actualizar contraseña
+    repo = UserRepository(db)
+    await repo.update_password(current_user.id, hash_password(body.new_password))
+
+    # Notificar por email (no bloquear si falla)
+    try:
+        from app.email import send_password_changed
+        await send_password_changed(current_user.email, current_user.nombre)
+    except Exception:
+        pass
 
 
 @router.get("/me")

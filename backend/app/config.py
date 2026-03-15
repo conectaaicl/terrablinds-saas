@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_MB: int = 10
 
+    # Email (Resend) — opcional; si no está configurado no se envían emails
+    RESEND_API_KEY: str = ""
+    FROM_EMAIL: str = "noreply@works.conectaai.cl"
+    FROM_NAME: str = "WorkshopOS"
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, require_roles
-from app.database import get_db
-from app.dependencies import get_tenant_scope
-from app.models.user import User
+from app.auth.dependencies import TokenData, get_token_data, require_roles
+from app.dependencies import get_db_for_tenant
 from app.notifications.schemas import NotificationCreate, NotificationResponse
 from app.notifications.service import NotificationService
 
@@ -13,12 +11,11 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 @router.get("/", response_model=list[NotificationResponse])
 async def list_notifications(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    token_data: TokenData = Depends(get_token_data),
+    db: AsyncSession = Depends(get_db_for_tenant),
 ):
-    scope = get_tenant_scope(current_user)
     service = NotificationService(db)
-    notis = await service.list_notifications(scope)
+    notis = await service.list_notifications(token_data.tenant_id)
     return [
         NotificationResponse(
             id=n.id,
@@ -35,11 +32,18 @@ async def list_notifications(
 @router.post("/", response_model=NotificationResponse, status_code=201)
 async def create_notification(
     data: NotificationCreate,
-    current_user: User = Depends(require_roles("jefe", "coordinador")),
-    db: AsyncSession = Depends(get_db),
+    token_data: TokenData = Depends(require_roles("jefe", "coordinador", "gerente")),
+    db: AsyncSession = Depends(get_db_for_tenant),
 ):
+    from app.models.user import User
+    from sqlalchemy import select
+    result = await db.execute(select(User).where(User.id == token_data.user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
     service = NotificationService(db)
-    noti = await service.create_notification(data, current_user)
+    noti = await service.create_notification(data, user)
     return NotificationResponse(
         id=noti.id,
         tenant_id=noti.tenant_id,

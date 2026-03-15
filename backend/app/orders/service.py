@@ -15,6 +15,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.email_service import enviar_email_cliente
 from app.models.order import Order, OrderHistory
 from app.models.user import RoleEnum, User
 from app.orders.repository import OrderRepository
@@ -55,7 +56,7 @@ class OrderService:
             tenant_id=tenant_id,
             cliente_id=data.cliente_id,
             vendedor_id=user_id,
-            estado="cotizado",
+            estado="cotizacion",
             precio_total=data.precio_total,
             productos=[p.model_dump() for p in data.productos],
             cotizacion_id=data.cotizacion_id,
@@ -64,7 +65,7 @@ class OrderService:
 
         await self.repo.add_history(OrderHistory(
             order_id=order.id,
-            estado="cotizado",
+            estado="cotizacion",
             usuario_id=user_id,
             usuario_nombre="",  # se actualiza en el router con el nombre real
             fecha=datetime.now(timezone.utc),
@@ -104,6 +105,30 @@ class OrderService:
             notas=data.notas,
         ))
         await self.db.flush()
+
+        # Email al cliente en transiciones marcadas como auto_notify_client
+        if rule.auto_notify_client and order.client and order.client.email:
+            import asyncio
+            from app.tenants.repository import TenantRepository
+            tenant_nombre = tenant_id  # fallback
+            try:
+                tenant_repo = TenantRepository(self.db)
+                tenant = await tenant_repo.get_by_id(tenant_id)
+                if tenant:
+                    tenant_nombre = tenant.nombre
+            except Exception:
+                pass
+            asyncio.ensure_future(
+                enviar_email_cliente(
+                    to_email=order.client.email,
+                    to_nombre=order.client.nombre,
+                    estado=data.estado,
+                    numero_orden=order.numero,
+                    taller_nombre=tenant_nombre,
+                    total=f"${order.precio_total:,}".replace(",", "."),
+                )
+            )
+
         return order
 
     async def assign_fabricante(

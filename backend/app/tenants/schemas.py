@@ -9,6 +9,9 @@ class TenantCreate(BaseModel):
     slug: str
     branding: dict
     plan: Literal["trial", "basico", "pro"] = "trial"
+    # Cuenta inicial del jefe (opcional — si se provee, se crea el usuario y se envía email)
+    jefe_nombre: Optional[str] = None
+    jefe_email: Optional[str] = None
 
 
 class TenantUpdate(BaseModel):
@@ -26,5 +29,7 @@ class TenantResponse(BaseModel):
     branding: dict
     plan: str
     activo: bool
+    # Presente solo cuando se acaba de crear el taller con jefe
+    jefe_password: Optional[str] = None
 
     model_config = {"from_attributes": True}

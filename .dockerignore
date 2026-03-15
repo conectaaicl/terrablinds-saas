@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+backend
+nginx/ssl
+*.md
+.git
+.gitignore

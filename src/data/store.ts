@@ -1,4 +1,4 @@
-import type { Usuario, Tenant, Cliente, Cotizacion, Orden, EstadoOrden, ChatMessage, ProductCatalogItem } from '../types';
+import type { Usuario, Tenant, Cliente, Cotizacion, Orden, EstadoOrden } from '../types';
 
 // ═══════════════════════════════════════════════
 // SEED DATA — Multi-tenant white-label
@@ -99,7 +99,7 @@ const SEED_ORDENES: Orden[] = [
       { estado: 'cotizado',        fecha: '2025-01-08', usuarioId: 'u2', usuarioNombre: 'Andrea Soto' },
       { estado: 'confirmado',      fecha: '2025-01-09', usuarioId: 'u2', usuarioNombre: 'Andrea Soto' },
       { estado: 'en_fabricacion',  fecha: '2025-01-10', usuarioId: 'u1', usuarioNombre: 'Carlos Méndez' },
-      { estado: 'listo',           fecha: '2025-01-15', usuarioId: 'u4', usuarioNombre: 'Roberto Díaz' },
+      { estado: 'listo_para_instalar', fecha: '2025-01-15', usuarioId: 'u4', usuarioNombre: 'Roberto Díaz' },
       { estado: 'en_instalacion',  fecha: '2025-01-16', usuarioId: 'u1', usuarioNombre: 'Carlos Méndez' },
     ],
   },
@@ -119,7 +119,7 @@ const SEED_ORDENES: Orden[] = [
   },
   {
     id: 'ORD-004', numero: 4, cotizacionId: 'cot-004', clienteId: 'c4', vendedorId: 'u3',
-    fabricanteId: 'u5', instaladorId: 'u7', tenantId: 'tb-001', estado: 'instalado',
+    fabricanteId: 'u5', instaladorId: 'u7', tenantId: 'tb-001', estado: 'instalacion_completada',
     productos: [
       { id: 'p7', tipo: 'Cortina Roller', ancho: 160, alto: 210, tela: 'Sunscreen 5%', color: 'Blanco', precio: 78000 },
     ],
@@ -128,9 +128,9 @@ const SEED_ORDENES: Orden[] = [
       { estado: 'cotizado',       fecha: '2025-01-05', usuarioId: 'u3', usuarioNombre: 'Miguel Torres' },
       { estado: 'confirmado',     fecha: '2025-01-06', usuarioId: 'u3', usuarioNombre: 'Miguel Torres' },
       { estado: 'en_fabricacion', fecha: '2025-01-07', usuarioId: 'u1', usuarioNombre: 'Carlos Méndez' },
-      { estado: 'listo',          fecha: '2025-01-10', usuarioId: 'u5', usuarioNombre: 'Felipe Muñoz' },
-      { estado: 'en_instalacion', fecha: '2025-01-11', usuarioId: 'u1', usuarioNombre: 'Carlos Méndez' },
-      { estado: 'instalado',      fecha: '2025-01-13', usuarioId: 'u7', usuarioNombre: 'Diego Rojas' },
+      { estado: 'listo_para_instalar',    fecha: '2025-01-10', usuarioId: 'u5', usuarioNombre: 'Felipe Muñoz' },
+      { estado: 'instalando',             fecha: '2025-01-11', usuarioId: 'u1', usuarioNombre: 'Carlos Méndez' },
+      { estado: 'instalacion_completada', fecha: '2025-01-13', usuarioId: 'u7', usuarioNombre: 'Diego Rojas' },
     ],
   },
   {
@@ -146,7 +146,7 @@ const SEED_ORDENES: Orden[] = [
   },
   {
     id: 'ORD-006', numero: 6, cotizacionId: 'cot-006', clienteId: 'c1', vendedorId: 'u2',
-    fabricanteId: 'u5', tenantId: 'tb-001', estado: 'listo',
+    fabricanteId: 'u5', tenantId: 'tb-001', estado: 'listo_para_instalar',
     productos: [
       { id: 'p9', tipo: 'Cortina Zebra', ancho: 140, alto: 200, tela: 'Tela Decorativa', color: 'Crema', precio: 125000 },
       { id: 'p10', tipo: 'Cortina Zebra', ancho: 160, alto: 200, tela: 'Tela Decorativa', color: 'Crema', precio: 135000 },
@@ -156,7 +156,7 @@ const SEED_ORDENES: Orden[] = [
       { estado: 'cotizado',       fecha: '2025-01-09', usuarioId: 'u2', usuarioNombre: 'Andrea Soto' },
       { estado: 'confirmado',     fecha: '2025-01-10', usuarioId: 'u2', usuarioNombre: 'Andrea Soto' },
       { estado: 'en_fabricacion', fecha: '2025-01-11', usuarioId: 'u1', usuarioNombre: 'Carlos Méndez' },
-      { estado: 'listo',          fecha: '2025-01-15', usuarioId: 'u5', usuarioNombre: 'Felipe Muñoz' },
+      { estado: 'listo_para_instalar', fecha: '2025-01-15', usuarioId: 'u5', usuarioNombre: 'Felipe Muñoz' },
     ],
   },
   {

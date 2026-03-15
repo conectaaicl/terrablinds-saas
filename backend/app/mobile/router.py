@@ -100,32 +100,46 @@ async def my_orders(
     token_data: TokenData = Depends(require_roles("instalador", "fabricante")),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
-    """Órdenes activas asignadas al usuario (no terminales)."""
-    field = (
-        Order.instalador_id
-        if token_data.role == "instalador"
-        else Order.fabricante_id
-    )
-    terminales = ("cerrado", "cancelado", "rechazado")
+    """Órdenes activas asignadas al usuario (no terminales), con datos de cliente."""
+    terminales = ["cerrado", "cancelado", "rechazado", "cerrada", "cancelada", "rechazada"]
+    uid_col = "o.instalador_id" if token_data.role == "instalador" else "o.fabricante_id"
 
     result = await db.execute(
-        select(Order).where(
-            field == token_data.user_id,
-            Order.tenant_id == token_data.tenant_id,
-            ~Order.estado.in_(terminales),
-        ).order_by(Order.created_at.desc())
+        text(f"""
+            SELECT
+                o.id, o.numero, o.estado, o.precio_total, o.productos,
+                o.created_at,
+                c.nombre    AS cliente_nombre,
+                c.direccion AS cliente_direccion,
+                c.telefono  AS cliente_telefono
+            FROM orders o
+            JOIN clients c ON c.id = o.cliente_id
+            WHERE o.tenant_id = :tid
+              AND o.estado != ALL(:terminales)
+              AND {uid_col} = :uid
+            ORDER BY o.created_at DESC
+        """),
+        {
+            "tid": token_data.tenant_id,
+            "terminales": terminales,
+            "uid": token_data.user_id,
+        },
     )
-    orders = result.scalars().all()
+    rows = result.fetchall()
 
     return [
         {
-            "id":          o.id,
-            "numero":      o.numero,
-            "estado":      o.estado,
-            "precio_total":o.precio_total,
-            "created_at":  o.created_at.isoformat() if o.created_at else None,
+            "id":                r.id,
+            "numero":            r.numero,
+            "estado":            r.estado,
+            "precio_total":      r.precio_total,
+            "productos":         r.productos or [],
+            "created_at":        r.created_at.isoformat() if r.created_at else None,
+            "cliente_nombre":    r.cliente_nombre,
+            "cliente_direccion": r.cliente_direccion,
+            "cliente_telefono":  r.cliente_telefono,
         }
-        for o in orders
+        for r in rows
     ]
 
 

@@ -24,6 +24,9 @@ from app.models.analytics import (
 )
 from app.models.chat import ChatChannel, ChatMessage
 from app.models.cotizacion import Cotizacion
+from app.models.producto import Producto
+from app.models.gps import GpsPing
+from app.models.task import DailyTask
 
 __all__ = [
     "Base",
@@ -57,4 +60,7 @@ __all__ = [
     "ChatChannel",
     "ChatMessage",
     "Cotizacion",
+    "Producto",
+    "GpsPing",
+    "DailyTask",
 ]
