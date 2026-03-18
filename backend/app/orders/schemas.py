@@ -49,7 +49,13 @@ class OrderResponse(BaseModel):
     productos: list[dict]
     precio_total: int
     created_at: str
+    estado_updated_at: Optional[str] = None
     historial: list[HistorialEntry] = []
+    produccion_subestado: Optional[str] = None
+    tracking_token: Optional[str] = None
+    tracking_activo: bool = False
+    garantia_meses: Optional[int] = None
+    fecha_instalacion: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

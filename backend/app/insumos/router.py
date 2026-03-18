@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_roles
 from app.database import get_db
 from app.dependencies import get_tenant_scope
-from app.insumos.schemas import InsumoCreate, InsumoResponse
+from app.insumos.schemas import InsumoCreate, InsumoResponse, InsumoUpdate
 from app.insumos.service import InsumoService
 from app.models.user import User
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/insumos", tags=["insumos"])
 
 @router.get("/", response_model=list[InsumoResponse])
 async def list_insumos(
-    current_user: User = Depends(require_roles("jefe", "coordinador", "superadmin")),
+    current_user: User = Depends(require_roles("jefe", "gerente", "coordinador", "bodegas", "fabricante", "superadmin")),
     db: AsyncSession = Depends(get_db),
 ):
     scope = get_tenant_scope(current_user)
@@ -32,6 +32,30 @@ async def list_insumos(
         )
         for i in insumos
     ]
+
+
+@router.patch("/{insumo_id}/estado", response_model=InsumoResponse)
+async def update_insumo_estado(
+    insumo_id: int,
+    data: InsumoUpdate,
+    current_user: User = Depends(require_roles("jefe", "gerente", "coordinador", "bodegas", "superadmin")),
+    db: AsyncSession = Depends(get_db),
+):
+    scope = get_tenant_scope(current_user)
+    service = InsumoService(db)
+    insumo = await service.update_estado(insumo_id, data, scope)
+    if not insumo:
+        raise HTTPException(status_code=404, detail="Insumo no encontrado")
+    return InsumoResponse(
+        id=insumo.id,
+        tenant_id=insumo.tenant_id,
+        usuario_id=insumo.usuario_id,
+        usuario_nombre=insumo.usuario.nombre if insumo.usuario else None,
+        items=insumo.items,
+        urgencia=insumo.urgencia,
+        estado=insumo.estado,
+        created_at=insumo.created_at.isoformat() if insumo.created_at else "",
+    )
 
 
 @router.post("/", response_model=InsumoResponse, status_code=201)

@@ -152,6 +152,8 @@ export const api = {
   getOrder: (id: number) => fetchWithAuth(`/api/v1/orders/${id}`),
   createOrder: (data: any) =>
     fetchWithAuth('/api/v1/orders/', { method: 'POST', body: JSON.stringify(data) }),
+  updateSubestado: (id: number, subestado: string) =>
+    fetchWithAuth(`/api/v1/orders/${id}/subestado`, { method: 'PATCH', body: JSON.stringify({ subestado }) }),
   changeEstado: (id: number, estado: string, notas?: string) =>
     fetchWithAuth(`/api/v1/orders/${id}/estado`, {
       method: 'POST',
@@ -174,6 +176,11 @@ export const api = {
     fetchWithAuth('/api/v1/insumos/', {
       method: 'POST',
       body: JSON.stringify({ items, urgencia }),
+    }),
+  updateInsumoEstado: (id: number, estado: string) =>
+    fetchWithAuth(`/api/v1/insumos/${id}/estado`, {
+      method: 'PATCH',
+      body: JSON.stringify({ estado }),
     }),
 
   // ── Notifications ─────────────────────────────────────────
@@ -237,6 +244,8 @@ export const api = {
     const qs = categoria ? `?categoria=${encodeURIComponent(categoria)}` : '';
     return fetchWithAuth(`/api/v1/productos/${qs}`);
   },
+  searchProductos: (q: string, limit = 30) =>
+    fetchWithAuth(`/api/v1/productos/?q=${encodeURIComponent(q)}&limit=${limit}`),
   createProducto: (data: {
     nombre: string; descripcion?: string; categoria: string; unidad: string;
     precio_base: number; colores: string[]; materiales: string[]; specs?: Record<string, any>; codigo?: string;
@@ -251,6 +260,32 @@ export const api = {
     fetchWithAuth('/api/v1/gps/ping', { method: 'POST', body: JSON.stringify(data) }),
   getActivePositions: () => fetchWithAuth('/api/v1/gps/active'),
   getGpsHistory: (orderId: number) => fetchWithAuth(`/api/v1/gps/order/${orderId}`),
+  getGpsTracking: (token: string) => fetchWithAuth(`/api/v1/gps/tracking/${token}`),
+  activateTracking: (orderId: number) =>
+    fetchWithAuth(`/api/v1/gps/tracking/start/${orderId}`, { method: 'POST' }),
+  deactivateTracking: (orderId: number) =>
+    fetchWithAuth(`/api/v1/gps/tracking/stop/${orderId}`, { method: 'POST' }),
+  getInstaladorOrders: () => fetchWithAuth('/api/v1/gps/my-orders'),
+
+  // ── Auth — recuperación de contraseña ────────────────────
+  forgotPassword: (email: string) =>
+    fetch(`${API_URL}/api/v1/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).then(async res => {
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw { response: { data: e } }; }
+      return res.json().catch(() => ({}));
+    }),
+  resetPassword: (token: string, new_password: string) =>
+    fetch(`${API_URL}/api/v1/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, new_password }),
+    }).then(async res => {
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw { response: { data: e } }; }
+      return null;
+    }),
 
   // ── Tareas Diarias ─────────────────────────────────────────
   getTasks: (params?: { fecha?: string; asignado_a?: string; estado?: string }) => {
@@ -283,6 +318,77 @@ export const api = {
     firma_data: string; firmante_nombre: string; firmante_rut?: string;
     firmante_email?: string; lat?: number; lon?: number;
   }) => fetchWithAuth(`/api/v1/orders/${orderId}/signature`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // ── Inventario ────────────────────────────────────────────
+  getInventarioItems: (params?: { categoria?: string; solo_bajo_minimo?: boolean }) => {
+    const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)]) as [string, string][]).toString() : '';
+    return fetchWithAuth(`/api/v1/inventario/items${qs}`);
+  },
+  createInventarioItem: (data: {
+    nombre: string; categoria: string; unidad: string;
+    stock_actual?: number; stock_minimo?: number;
+    precio_unitario?: number; proveedor?: string; codigo?: string; descripcion?: string;
+  }) => fetchWithAuth('/api/v1/inventario/items', { method: 'POST', body: JSON.stringify(data) }),
+  updateInventarioItem: (id: number, data: Record<string, any>) =>
+    fetchWithAuth(`/api/v1/inventario/items/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteInventarioItem: (id: number) =>
+    fetchWithAuth(`/api/v1/inventario/items/${id}`, { method: 'DELETE' }),
+  getInventarioMovimientos: (itemId?: number) => {
+    const qs = itemId ? `?item_id=${itemId}` : '';
+    return fetchWithAuth(`/api/v1/inventario/movimientos${qs}`);
+  },
+  createMovimiento: (data: {
+    item_id: number; tipo: string; cantidad: number;
+    motivo?: string; order_id?: number; notas?: string;
+  }) => fetchWithAuth('/api/v1/inventario/movimientos', { method: 'POST', body: JSON.stringify(data) }),
+  getInventarioAlertas: () => fetchWithAuth('/api/v1/inventario/alertas'),
+  getReglasMateriales: (tipo_producto?: string) => {
+    const qs = tipo_producto ? `?tipo_producto=${encodeURIComponent(tipo_producto)}` : '';
+    return fetchWithAuth(`/api/v1/inventario/reglas${qs}`);
+  },
+  createReglaMaterial: (data: Record<string, any>) =>
+    fetchWithAuth('/api/v1/inventario/reglas', { method: 'POST', body: JSON.stringify(data) }),
+  deleteReglaMaterial: (id: number) =>
+    fetchWithAuth(`/api/v1/inventario/reglas/${id}`, { method: 'DELETE' }),
+  calcularMateriales: (tipo_producto: string, ancho_cm: number, alto_cm: number) =>
+    fetchWithAuth(`/api/v1/inventario/calcular?tipo_producto=${encodeURIComponent(tipo_producto)}&ancho_cm=${ancho_cm}&alto_cm=${alto_cm}`),
+
+  // ── Averías y Fallas ─────────────────────────────────────
+  getAverias: (params?: { estado?: string; tipo_servicio?: string; severidad?: string; client_id?: number; solo_mias?: boolean }) => {
+    const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)]) as [string, string][]).toString() : '';
+    return fetchWithAuth(`/api/v1/averias/${qs}`);
+  },
+  getAveriaStats: () => fetchWithAuth('/api/v1/averias/stats'),
+  createAveria: (data: {
+    tipo_servicio: string; titulo: string; descripcion?: string; severidad?: string;
+    client_id?: number; order_id?: number; fotos?: string[]; notas_tecnicas?: string; presupuesto_estimado?: number;
+  }) => fetchWithAuth('/api/v1/averias/', { method: 'POST', body: JSON.stringify(data) }),
+  updateAveria: (id: number, data: { estado?: string; severidad?: string; asignado_a?: number; client_id?: number; notas_tecnicas?: string; presupuesto_estimado?: number; descripcion?: string }) =>
+    fetchWithAuth(`/api/v1/averias/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteAveria: (id: number) =>
+    fetchWithAuth(`/api/v1/averias/${id}`, { method: 'DELETE' }),
+
+  updateGarantia: (id: number, data: { garantia_meses?: number; fecha_instalacion?: string }) =>
+    fetchWithAuth(`/api/v1/orders/${id}/garantia`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // ── Post-Venta ────────────────────────────────────────────
+  getPostVenta: (params?: { estado?: string; tipo?: string }) => {
+    const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString() : '';
+    return fetchWithAuth(`/api/v1/post-venta/${qs}`);
+  },
+  getPostVentaStats: () => fetchWithAuth('/api/v1/post-venta/stats'),
+  createPostVenta: (data: { order_id: number; client_id: number; tipo: string; descripcion?: string }) =>
+    fetchWithAuth('/api/v1/post-venta/', { method: 'POST', body: JSON.stringify(data) }),
+  updatePostVenta: (id: string, data: { estado?: string; calificacion?: number; descripcion?: string }) =>
+    fetchWithAuth(`/api/v1/post-venta/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deletePostVenta: (id: string) =>
+    fetchWithAuth(`/api/v1/post-venta/${id}`, { method: 'DELETE' }),
+  addPostVentaNota: (id: string, texto: string) =>
+    fetchWithAuth(`/api/v1/post-venta/${id}/nota`, { method: 'POST', body: JSON.stringify({ texto }) }),
+  generatePostVentaAI: (id: string) =>
+    fetchWithAuth(`/api/v1/post-venta/${id}/ai`, { method: 'POST', body: JSON.stringify({}) }),
+  sendPostVentaEmail: (id: string) =>
+    fetchWithAuth(`/api/v1/post-venta/${id}/enviar-email`, { method: 'POST', body: JSON.stringify({}) }),
 
   // ── Appointments (citas de instalación) ───────────────────
   createAppointment: (data: {

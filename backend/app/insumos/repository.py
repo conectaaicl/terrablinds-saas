@@ -32,3 +32,17 @@ class InsumoRepository:
         self.db.add(insumo)
         await self.db.flush()
         return insumo
+
+    async def get_by_id(self, insumo_id: int) -> InsumoRequest | None:
+        q = (
+            select(InsumoRequest)
+            .options(selectinload(InsumoRequest.usuario))
+            .where(InsumoRequest.id == insumo_id)
+        )
+        result = await self.db.execute(q)
+        return result.scalar_one_or_none()
+
+    async def update_estado(self, insumo: InsumoRequest, estado: str) -> InsumoRequest:
+        insumo.estado = estado
+        await self.db.flush()
+        return insumo

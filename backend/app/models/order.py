@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -45,6 +45,14 @@ class Order(Base):
     estado: Mapped[str] = mapped_column(String, nullable=False, default="cotizado")
     precio_total: Mapped[int] = mapped_column(Integer, nullable=False)
     productos: Mapped[list] = mapped_column(JSON, nullable=False)
+
+    tracking_token: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    tracking_activo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Producción y garantía
+    produccion_subestado: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    garantia_meses: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    fecha_instalacion: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

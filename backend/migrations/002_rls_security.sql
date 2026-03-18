@@ -21,6 +21,7 @@ CREATE UNIQUE INDEX uq_users_email_tenant_partial
     ON users (email, COALESCE(tenant_id, ''));
 
 -- Unicidad de numero de orden por tenant (elimina race condition)
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS uq_orders_numero_tenant;
 DROP INDEX IF EXISTS uq_orders_numero_tenant;
 CREATE UNIQUE INDEX uq_orders_numero_tenant
     ON orders (numero, tenant_id);

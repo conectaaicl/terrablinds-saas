@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 
@@ -146,6 +147,12 @@ export default function Login() {
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
                 {submitting ? 'Ingresando...' : 'Entrar'}
               </button>
+
+              <div className="text-center">
+                <Link to="/forgot-password" className="text-xs text-rose-500 hover:text-rose-700 hover:underline">
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
             </form>
           </div>
 

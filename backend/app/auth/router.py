@@ -238,6 +238,96 @@ async def change_password(
         pass
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/forgot-password", status_code=202)
+@limiter.limit("3/minute")
+async def forgot_password(
+    request: Request,
+    body: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Inicia el flujo de recuperación de contraseña.
+    Siempre responde 202 (no revela si el email existe).
+    """
+    import uuid as _uuid
+    from app.auth.token_store import get_redis
+
+    result = await db.execute(
+        text("SELECT * FROM auth_lookup_user(:email)"),
+        {"email": body.email},
+    )
+    row = result.fetchone()
+
+    if row and row.activo:
+        reset_token = str(_uuid.uuid4())
+        redis = await get_redis()
+        # TTL 1 hora
+        await redis.setex(
+            f"pwd_reset:{reset_token}",
+            3600,
+            str(row.id),
+        )
+        try:
+            from app.email import send_password_reset
+            await send_password_reset(
+                to_email=row.email,
+                nombre=row.nombre,
+                token=reset_token,
+            )
+        except Exception:
+            pass
+
+    return {"message": "Si el email existe, recibirás un enlace de recuperación."}
+
+
+@router.post("/reset-password", status_code=204)
+async def reset_password(
+    body: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Restablece la contraseña usando el token de recuperación.
+    """
+    from app.auth.token_store import get_redis
+    from app.users.repository import UserRepository
+
+    if len(body.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La contraseña debe tener al menos 6 caracteres",
+        )
+
+    redis = await get_redis()
+    key = f"pwd_reset:{body.token}"
+    user_id_str = await redis.get(key)
+    if not user_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token inválido o expirado",
+        )
+
+    user_id = int(user_id_str)
+    repo = UserRepository(db)
+    await repo.update_password(user_id, hash_password(body.new_password))
+
+    # Invalidar token para que no pueda reutilizarse
+    await redis.delete(key)
+
+    # Revocar todas las sesiones del usuario por seguridad
+    from app.auth.token_store import RefreshTokenStore
+    store = RefreshTokenStore(redis)
+    await store.revoke_all_for_user(user_id)
+
+
 @router.get("/me")
 async def me(
     current_user=Depends(get_current_user),

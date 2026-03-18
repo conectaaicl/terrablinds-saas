@@ -51,10 +51,11 @@ PLANTILLAS: dict[str, dict] = {
         "html": """
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
   <h2 style="color:#1e293b">Hola {cliente},</h2>
-  <p>¡Buenas noticias! El técnico asignado a tu OT <strong>#{numero}</strong> está <strong>en camino</strong>.</p>
+  <p>¡Buenas noticias! El técnico asignado a tu OT <strong>#{numero}</strong> está <strong>en camino</strong> hacia tu domicilio.</p>
   <div style="background:#f5f3ff;border-radius:8px;padding:16px;margin:16px 0;border-left:4px solid #8b5cf6">
     <p style="margin:0;font-weight:bold;color:#6d28d9">Llegará en breve a tu domicilio.</p>
   </div>
+  {tracking_html}
   <p style="color:#64748b;font-size:14px">— Equipo {taller}</p>
 </div>
 """,
@@ -87,6 +88,7 @@ async def enviar_email_cliente(
     total: str = "",
     fecha: str = "",
     direccion: str = "",
+    tracking_url: str = "",
 ) -> None:
     """
     Envía un email al cliente si RESEND_API_KEY está configurado.
@@ -103,17 +105,25 @@ async def enviar_email_cliente(
     direccion_html = (
         f'<p style="margin:4px 0 0;color:#4f46e5">{direccion}</p>' if direccion else ""
     )
+    tracking_html = (
+        f'<a href="{tracking_url}" style="display:block;background:#6d28d9;color:#fff;text-align:center;'
+        f'text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:8px;margin:16px 0">'
+        f'📍 Ver ubicación del técnico en tiempo real →</a>'
+        if tracking_url else ""
+    )
 
     try:
-        subject = plantilla["subject"].format(taller=taller_nombre)
-        html = plantilla["html"].format(
+        _vars = dict(
             cliente=to_nombre,
             numero=numero_orden,
             taller=taller_nombre,
             total=total,
             fecha=fecha,
             direccion_html=direccion_html,
+            tracking_html=tracking_html,
         )
+        subject = plantilla["subject"].format_map(_vars)
+        html = plantilla["html"].format_map(_vars)
 
         payload = {
             "from": f"{settings.FROM_NAME} <{settings.FROM_EMAIL}>",

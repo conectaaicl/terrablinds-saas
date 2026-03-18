@@ -20,6 +20,7 @@ class RoleEnum(str, enum.Enum):
     vendedor = "vendedor"
     fabricante = "fabricante"
     instalador = "instalador"
+    bodegas = "bodegas"
 
 
 # Roles que pertenecen a un tenant (necesitan tenant_id)
@@ -30,6 +31,7 @@ TENANT_ROLES: set[RoleEnum] = {
     RoleEnum.vendedor,
     RoleEnum.fabricante,
     RoleEnum.instalador,
+    RoleEnum.bodegas,
 }
 
 # Qué roles puede crear cada rol
@@ -41,6 +43,7 @@ CREATABLE_ROLES: dict[RoleEnum, set[RoleEnum]] = {
         RoleEnum.vendedor,
         RoleEnum.fabricante,
         RoleEnum.instalador,
+        RoleEnum.bodegas,
         # superadmin nunca puede crear otro superadmin por API
     },
     RoleEnum.jefe: {
@@ -49,12 +52,14 @@ CREATABLE_ROLES: dict[RoleEnum, set[RoleEnum]] = {
         RoleEnum.vendedor,
         RoleEnum.fabricante,
         RoleEnum.instalador,
+        RoleEnum.bodegas,
     },
     RoleEnum.gerente: {
         RoleEnum.coordinador,
         RoleEnum.vendedor,
         RoleEnum.fabricante,
         RoleEnum.instalador,
+        RoleEnum.bodegas,
     },
 }
 

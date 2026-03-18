@@ -120,6 +120,100 @@ async def send_jefe_welcome(
     return await send_email(jefe_email, subject, html)
 
 
+async def send_password_reset(to_email: str, nombre: str, token: str) -> bool:
+    """Email con link para restablecer contraseña."""
+    subject = "Recupera tu contraseña — WorkShopOS"
+    reset_url = f"https://working.conectaai.cl/#/reset-password?token={token}"
+    html = f"""
+<!DOCTYPE html>
+<html lang="es">
+<body style="margin:0;padding:32px;background:#f8fafc;font-family:Inter,Arial,sans-serif">
+  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.07)">
+    <div style="background:linear-gradient(135deg,#e11d48,#9f1239);padding:28px 32px">
+      <span style="color:#fff;font-size:18px;font-weight:800">WorkShopOS</span>
+      <h1 style="color:#fff;font-size:22px;margin:12px 0 0">Recupera tu contraseña</h1>
+    </div>
+    <div style="padding:32px">
+      <p style="color:#475569;font-size:15px;margin:0 0 20px">
+        Hola <strong>{nombre}</strong>, recibimos una solicitud para restablecer tu contraseña.
+        Este enlace es válido por <strong>1 hora</strong>.
+      </p>
+      <a href="{reset_url}"
+        style="display:block;text-align:center;background:linear-gradient(135deg,#e11d48,#9f1239);color:#fff;font-size:15px;font-weight:700;text-decoration:none;border-radius:10px;padding:14px 24px;margin-bottom:20px">
+        Restablecer Contraseña →
+      </a>
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:16px">
+        <p style="color:#9a3412;font-size:13px;margin:0">
+          Si no solicitaste este cambio, ignora este email. Tu contraseña permanece igual.
+        </p>
+      </div>
+      <p style="color:#94a3b8;font-size:12px;margin:0;word-break:break-all">
+        O copia este enlace en tu navegador:<br>{reset_url}
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+"""
+    return await send_email(to_email, subject, html)
+
+
+async def send_user_welcome(
+    to_email: str,
+    nombre: str,
+    rol: str,
+    taller_nombre: str,
+    password: str,
+) -> bool:
+    """Email de bienvenida para nuevo usuario creado por jefe/gerente."""
+    ROL_LABELS = {
+        "gerente": "Gerente",
+        "coordinador": "Coordinador/a",
+        "vendedor": "Vendedor/a",
+        "fabricante": "Fabricante",
+        "instalador": "Instalador/a",
+        "bodegas": "Encargado/a de Bodegas",
+    }
+    rol_label = ROL_LABELS.get(rol, rol.capitalize())
+    subject = f"Bienvenido/a a {taller_nombre} — WorkShopOS"
+    html = f"""
+<!DOCTYPE html>
+<html lang="es">
+<body style="margin:0;padding:0;background:#f8fafc;font-family:Inter,Arial,sans-serif">
+  <div style="max-width:540px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.07)">
+    <div style="background:linear-gradient(135deg,#e11d48,#9f1239);padding:32px 32px 24px">
+      <span style="color:#fff;font-size:20px;font-weight:800">WorkShopOS</span>
+      <h1 style="color:#fff;font-size:24px;font-weight:800;margin:16px 0 4px">¡Bienvenido/a, {nombre}!</h1>
+      <p style="color:rgba(255,255,255,.8);font-size:14px;margin:0">Tu cuenta en {taller_nombre} está lista.</p>
+    </div>
+    <div style="padding:32px">
+      <div style="background:#f1f5f9;border-radius:12px;padding:20px 24px;margin-bottom:24px">
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="padding:5px 0;color:#64748b;font-size:13px;font-weight:600;width:90px">Email</td>
+              <td style="padding:5px 0;color:#0f172a;font-size:14px;font-weight:700;font-family:monospace">{to_email}</td></tr>
+          <tr><td style="padding:5px 0;color:#64748b;font-size:13px;font-weight:600">Contraseña</td>
+              <td style="padding:5px 0;color:#0f172a;font-size:14px;font-weight:700;font-family:monospace">{password}</td></tr>
+          <tr><td style="padding:5px 0;color:#64748b;font-size:13px;font-weight:600">Rol</td>
+              <td style="padding:5px 0;color:#0f172a;font-size:14px;font-weight:700">{rol_label}</td></tr>
+          <tr><td style="padding:5px 0;color:#64748b;font-size:13px;font-weight:600">Taller</td>
+              <td style="padding:5px 0;color:#0f172a;font-size:14px;font-weight:700">{taller_nombre}</td></tr>
+        </table>
+      </div>
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:24px">
+        <p style="color:#9a3412;font-size:13px;margin:0">⚠️ Cambia tu contraseña al ingresar por primera vez.</p>
+      </div>
+      <a href="https://working.conectaai.cl/#/login"
+        style="display:block;text-align:center;background:linear-gradient(135deg,#e11d48,#9f1239);color:#fff;font-size:15px;font-weight:700;text-decoration:none;border-radius:10px;padding:14px 24px">
+        Ingresar al Sistema →
+      </a>
+    </div>
+  </div>
+</body>
+</html>
+"""
+    return await send_email(to_email, subject, html)
+
+
 async def send_password_changed(to_email: str, nombre: str) -> bool:
     """Notificación de cambio de contraseña."""
     subject = "Tu contraseña fue cambiada — WorkShopOS"

@@ -9,8 +9,14 @@ import type { EstadoOrden } from '../../types';
 import { Spinner, ErrorMessage } from '../../components/LoadingStates';
 import {
   Factory, ChevronRight, ArrowLeft, Ruler, Palette,
-  CheckCircle2, AlertTriangle, Clock, User
+  CheckCircle2, AlertTriangle, Clock, User, Scissors, Wrench, Package,
 } from 'lucide-react';
+
+const SUBESTADOS = [
+  { value: 'en_corte', label: 'En Corte', icon: Scissors, bg: 'bg-amber-100', color: 'text-amber-700', active: 'bg-amber-500 text-white' },
+  { value: 'en_armado', label: 'En Armado', icon: Wrench, bg: 'bg-blue-100', color: 'text-blue-700', active: 'bg-blue-500 text-white' },
+  { value: 'listo', label: 'Listo', icon: Package, bg: 'bg-lime-100', color: 'text-lime-700', active: 'bg-lime-500 text-white' },
+];
 
 const fmtDate = (s: string) => s ? new Date(s).toLocaleDateString('es-CL') : '—';
 
@@ -96,6 +102,11 @@ function Section({ title, borderColor, items, iconBg, iconColor }: {
               <div>
                 <p className="text-sm font-semibold text-slate-800">#{o.numero}</p>
                 <p className="text-xs text-slate-500">{o.productos?.length || 0} producto(s) · {fmtDate(o.created_at)}</p>
+                {o.produccion_subestado && (
+                  <span className="mt-0.5 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                    {o.produccion_subestado.replace('_', ' ')}
+                  </span>
+                )}
               </div>
             </div>
             <ChevronRight size={16} className="text-slate-300" />
@@ -123,6 +134,10 @@ export function DetalleTecnico() {
     (estado: string, notas?: string) => api.changeEstado(numId, estado, notas)
   );
 
+  const { execute: cambiarSubestado, loading: changingSub } = useMutation(
+    (subestado: string) => api.updateSubestado(numId, subestado)
+  );
+
   const marcarFabricado = useCallback(async () => {
     const res = await cambiarEstado('listo_para_instalar');
     if (res) refetch();
@@ -134,6 +149,13 @@ export function DetalleTecnico() {
     const res = await cambiarEstado('problema', notas);
     if (res) refetch();
   }, [cambiarEstado, refetch]);
+
+  const setSubestado = useCallback(async (val: string) => {
+    const current = (orden as any)?.produccion_subestado;
+    const next = current === val ? '' : val; // toggle off
+    const res = await cambiarSubestado(next);
+    if (res) refetch();
+  }, [cambiarSubestado, refetch, orden]);
 
   if (loading) return <Spinner />;
   if (error) return <ErrorMessage message={error} onRetry={refetch} />;
@@ -227,16 +249,49 @@ export function DetalleTecnico() {
       </div>
 
       {orden.estado === 'en_fabricacion' && (
-        <div className="flex gap-3">
-          <button onClick={reportarProblema} disabled={changing}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-60">
-            <AlertTriangle size={17} /> Problema
-          </button>
-          <button onClick={marcarFabricado} disabled={changing}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-lime-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-lime-600 disabled:opacity-60">
-            <CheckCircle2 size={17} /> Listo para Instalar
-          </button>
-        </div>
+        <>
+          {/* Sub-state tracker */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
+            <h2 className="mb-3 text-sm font-semibold text-slate-700">Etapa de Producción</h2>
+            <div className="flex gap-2">
+              {SUBESTADOS.map((s, idx) => {
+                const current = (orden as any)?.produccion_subestado;
+                const isActive = current === s.value;
+                const isPast = SUBESTADOS.findIndex(x => x.value === current) > idx;
+                return (
+                  <button key={s.value} onClick={() => setSubestado(s.value)} disabled={changingSub}
+                    className={`flex flex-1 flex-col items-center gap-1.5 rounded-xl border-2 py-3 px-2 text-xs font-bold transition-all disabled:opacity-60 ${
+                      isActive
+                        ? `border-transparent ${s.active} shadow-sm`
+                        : isPast
+                        ? 'border-slate-200 bg-slate-50 text-slate-400'
+                        : `border-slate-200 bg-white ${s.color} hover:${s.bg}`
+                    }`}>
+                    <s.icon size={18} />
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+            {(orden as any)?.produccion_subestado && (
+              <p className="mt-2 text-center text-xs text-slate-400">
+                Toca la etapa activa para desmarcarla
+              </p>
+            )}
+          </div>
+
+          {/* Final actions */}
+          <div className="flex gap-3">
+            <button onClick={reportarProblema} disabled={changing}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-60">
+              <AlertTriangle size={17} /> Problema
+            </button>
+            <button onClick={marcarFabricado} disabled={changing}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-lime-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-lime-600 disabled:opacity-60">
+              <CheckCircle2 size={17} /> Listo para Instalar
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

@@ -27,6 +27,10 @@ from app.models.cotizacion import Cotizacion
 from app.models.producto import Producto
 from app.models.gps import GpsPing
 from app.models.task import DailyTask
+from app.models.post_venta import PostVenta
+from app.models.empleado_documento import EmpleadoDocumento
+from app.models.inventario import InventarioItem, InventarioMovimiento, ReglaMaterial
+from app.models.averia import Averia
 
 __all__ = [
     "Base",
@@ -63,4 +67,10 @@ __all__ = [
     "Producto",
     "GpsPing",
     "DailyTask",
+    "PostVenta",
+    "EmpleadoDocumento",
+    "InventarioItem",
+    "InventarioMovimiento",
+    "ReglaMaterial",
+    "Averia",
 ]

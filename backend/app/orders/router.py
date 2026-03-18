@@ -42,6 +42,14 @@ def _order_to_response(o) -> OrderResponse:
         )
         for h in (o.historial or [])
     ]
+    # Determinar cuándo se entró al estado actual (último historial con ese estado)
+    estado_updated_at = None
+    if o.historial:
+        for h in reversed(o.historial):
+            if h.estado == o.estado and h.fecha:
+                estado_updated_at = h.fecha.isoformat()
+                break
+
     return OrderResponse(
         id=o.id,
         numero=o.numero,
@@ -60,14 +68,20 @@ def _order_to_response(o) -> OrderResponse:
         productos=o.productos or [],
         precio_total=o.precio_total,
         created_at=o.created_at.isoformat() if o.created_at else "",
+        estado_updated_at=estado_updated_at,
         historial=historial,
+        produccion_subestado=getattr(o, "produccion_subestado", None),
+        tracking_token=getattr(o, "tracking_token", None),
+        tracking_activo=getattr(o, "tracking_activo", False),
+        garantia_meses=getattr(o, "garantia_meses", None),
+        fecha_instalacion=o.fecha_instalacion.isoformat() if getattr(o, "fecha_instalacion", None) else None,
     )
 
 
 @router.get("/", response_model=list[OrderResponse])
 async def list_orders(
     token_data: TokenData = Depends(require_roles(
-        "jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "superadmin"
+        "jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "bodegas", "superadmin"
     )),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
@@ -96,7 +110,7 @@ async def create_order(
 async def get_order(
     order_id: int,
     token_data: TokenData = Depends(require_roles(
-        "jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "superadmin"
+        "jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "bodegas", "superadmin"
     )),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
@@ -278,3 +292,60 @@ async def get_signature(
             "tiene_datos": True,
         }
     }
+
+
+class SubestadoUpdate(BaseModel):
+    subestado: str  # en_corte | en_armado | listo | None
+
+
+@router.patch("/{order_id}/subestado", status_code=200)
+async def update_subestado(
+    order_id: int,
+    data: SubestadoUpdate,
+    token_data: TokenData = Depends(require_roles("fabricante", "jefe", "gerente", "coordinador")),
+    db: AsyncSession = Depends(get_db_for_tenant),
+):
+    """Actualiza el subestado de producción de una orden."""
+    from app.models.order import Order
+    result = await db.execute(
+        select(Order).where(Order.id == order_id, Order.tenant_id == token_data.tenant_id)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, "Orden no encontrada")
+    allowed = {"en_corte", "en_armado", "listo", ""}
+    if data.subestado not in allowed:
+        raise HTTPException(400, f"subestado inválido: {data.subestado}")
+    order.produccion_subestado = data.subestado or None
+    await db.commit()
+    return {"ok": True, "subestado": order.produccion_subestado}
+
+
+class GarantiaUpdate(BaseModel):
+    garantia_meses: Optional[int] = None
+    fecha_instalacion: Optional[str] = None  # ISO format
+
+
+@router.patch("/{order_id}/garantia", status_code=200)
+async def update_garantia(
+    order_id: int,
+    data: GarantiaUpdate,
+    token_data: TokenData = Depends(require_roles("jefe", "gerente", "coordinador")),
+    db: AsyncSession = Depends(get_db_for_tenant),
+):
+    """Actualiza datos de garantía de una orden."""
+    from app.models.order import Order
+    from datetime import datetime
+    result = await db.execute(
+        select(Order).where(Order.id == order_id, Order.tenant_id == token_data.tenant_id)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, "Orden no encontrada")
+    if data.garantia_meses is not None:
+        order.garantia_meses = data.garantia_meses
+    if data.fecha_instalacion is not None:
+        order.fecha_instalacion = datetime.fromisoformat(data.fecha_instalacion)
+    await db.commit()
+    return {"ok": True, "garantia_meses": order.garantia_meses,
+            "fecha_instalacion": order.fecha_instalacion.isoformat() if order.fecha_instalacion else None}

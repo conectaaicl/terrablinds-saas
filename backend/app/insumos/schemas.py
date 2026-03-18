@@ -8,6 +8,10 @@ class InsumoCreate(BaseModel):
     urgencia: Literal["baja", "media", "alta"] = "media"
 
 
+class InsumoUpdate(BaseModel):
+    estado: Literal["pendiente", "en_proceso", "comprado", "cancelado"]
+
+
 class InsumoResponse(BaseModel):
     id: int
     tenant_id: str

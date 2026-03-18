@@ -85,7 +85,35 @@ class UserService:
             tenant_id=data.tenant_id,
             activo=True,
         )
-        return await self.repo.create(user)
+        created = await self.repo.create(user)
+
+        # Enviar email de bienvenida (fire-and-forget)
+        import asyncio
+        try:
+            from app.email import send_user_welcome
+            from app.tenants.repository import TenantRepository
+            taller_nombre = data.tenant_id or "tu taller"
+            if data.tenant_id:
+                try:
+                    t_repo = TenantRepository(self.repo.db)
+                    tenant = await t_repo.get_by_id(data.tenant_id)
+                    if tenant:
+                        taller_nombre = tenant.nombre
+                except Exception:
+                    pass
+            asyncio.ensure_future(
+                send_user_welcome(
+                    to_email=data.email,
+                    nombre=data.nombre,
+                    rol=target_role.value,
+                    taller_nombre=taller_nombre,
+                    password=data.password,
+                )
+            )
+        except Exception:
+            pass
+
+        return created
 
     async def toggle_active(
         self, user_id: int, tenant_id: str, requester_id: int

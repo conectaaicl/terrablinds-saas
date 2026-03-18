@@ -121,6 +121,14 @@ DEFAULT_PERMISSIONS: dict[str, dict[str, set[str]]] = {
         "signatures":    {"create"},
         "incidents":     {"read", "create"},
     },
+    "bodegas": {
+        "orders":        {"read"},
+        "clients":       {"read"},
+        "insumos":       {"read", "create", "approve"},
+        "notifications": {"read"},
+        "reports":       {"read"},
+        "productos":     {"read", "create", "update"},
+    },
 }
 
 # Permisos que jefe/gerente NO pueden delegar ni quitar

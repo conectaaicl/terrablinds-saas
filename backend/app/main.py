@@ -68,6 +68,10 @@ def create_app() -> FastAPI:
     from app.tasks.router import router as tasks_router
     from app.tenants.router import router as tenants_router
     from app.users.router import router as users_router
+    from app.post_venta.router import router as post_venta_router
+    from app.rrhh.router import router as rrhh_router
+    from app.inventario.router import router as inventario_router
+    from app.averias.router import router as averias_router
 
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(users_router, prefix="/api/v1")
@@ -85,6 +89,10 @@ def create_app() -> FastAPI:
     app.include_router(productos_router, prefix="/api/v1")
     app.include_router(gps_router, prefix="/api/v1")
     app.include_router(tasks_router, prefix="/api/v1")
+    app.include_router(post_venta_router, prefix="/api/v1")
+    app.include_router(rrhh_router, prefix="/api/v1")
+    app.include_router(inventario_router, prefix="/api/v1")
+    app.include_router(averias_router, prefix="/api/v1")
 
     # Servir uploads de fotos
     uploads_dir = Path(settings.UPLOAD_DIR)

@@ -31,6 +31,18 @@ class Settings(BaseSettings):
     FROM_EMAIL: str = "noreply@works.conectaai.cl"
     FROM_NAME: str = "WorkshopOS"
 
+    # Groq AI — para post-venta, sugerencias, análisis
+    GROQ_API_KEY: str = ""
+
+    # n8n Webhooks — opcionales; si están vacíos no se disparan
+    N8N_WEBHOOK_NUEVO_CLIENTE: str = ""
+    N8N_WEBHOOK_ORDEN_CERRADA: str = ""
+    N8N_WEBHOOK_POST_VENTA: str = ""
+    N8N_WEBHOOK_TRACKING: str = ""
+
+    # URL pública del frontend (para links de tracking)
+    FRONTEND_URL: str = "https://works.conectaai.cl"
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

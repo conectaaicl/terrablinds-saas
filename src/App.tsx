@@ -4,6 +4,9 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Landing from './pages/Landing';
 import ChangePassword from './pages/ChangePassword';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import Tracking from './pages/Tracking';
 import JefeDashboard from './pages/jefe/Dashboard';
 import { OrdenesLista, OrdenDetalle } from './pages/jefe/Ordenes';
 import Usuarios from './pages/jefe/Usuarios';
@@ -22,6 +25,16 @@ import {
   MapaGPS,
 } from './pages/coordinador/Coordinador';
 import Productos from './pages/productos/Productos';
+import BodegasDashboard from './pages/bodegas/Bodegas';
+import BodegasInsumos from './pages/bodegas/BodegasInsumos';
+import Inventario from './pages/bodegas/Inventario';
+import Clientes from './pages/clientes/Clientes';
+import PostVenta from './pages/post_venta/PostVenta';
+import RRHH from './pages/rrhh/RRHH';
+import ReglasMateriales from './pages/jefe/ReglasMateriales';
+import JefeAverias from './pages/jefe/Averias';
+import InstaladorAverias from './pages/instalador/Averias';
+import InstaladorTracking from './pages/instalador/InstaladorTracking';
 import type { Rol } from './types';
 import { Component, type ReactNode } from 'react';
 
@@ -60,6 +73,7 @@ function getHome(rol: Rol): string {
     case 'jefe': return '/jefe';
     case 'gerente': return '/gerente';
     case 'coordinador': return '/coordinador';
+    case 'bodegas': return '/bodegas';
     default: return `/${rol}`;
   }
 }
@@ -81,6 +95,9 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/tracking/:token" element={<Tracking />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -110,6 +127,11 @@ function AppRoutes() {
           <Route path="/jefe/cotizaciones" element={<JefeCotizaciones />} />
           <Route path="/jefe/usuarios" element={<Usuarios />} />
           <Route path="/jefe/productos" element={<Productos />} />
+          <Route path="/jefe/clientes" element={<Clientes />} />
+          <Route path="/jefe/post-venta" element={<PostVenta />} />
+          <Route path="/jefe/rrhh" element={<RRHH />} />
+          <Route path="/jefe/reglas-materiales" element={<ReglasMateriales />} />
+          <Route path="/jefe/averias" element={<JefeAverias />} />
           <Route path="/jefe/agenda" element={<AgendaSemanal />} />
           <Route path="/jefe/tareas" element={<GestionTareas />} />
           <Route path="/jefe/gps" element={<MapaGPS />} />
@@ -126,6 +148,11 @@ function AppRoutes() {
           <Route path="/gerente/cotizaciones" element={<JefeCotizaciones />} />
           <Route path="/gerente/usuarios" element={<Usuarios />} />
           <Route path="/gerente/productos" element={<Productos />} />
+          <Route path="/gerente/clientes" element={<Clientes />} />
+          <Route path="/gerente/post-venta" element={<PostVenta />} />
+          <Route path="/gerente/rrhh" element={<RRHH />} />
+          <Route path="/gerente/reglas-materiales" element={<ReglasMateriales />} />
+          <Route path="/gerente/averias" element={<JefeAverias />} />
           <Route path="/gerente/agenda" element={<AgendaSemanal />} />
           <Route path="/gerente/tareas" element={<GestionTareas />} />
           <Route path="/gerente/gps" element={<MapaGPS />} />
@@ -144,6 +171,10 @@ function AppRoutes() {
           <Route path="/coordinador/ordenes/:id" element={<OrdenDetalle />} />
           <Route path="/coordinador/usuarios" element={<Usuarios />} />
           <Route path="/coordinador/productos" element={<Productos />} />
+          <Route path="/coordinador/clientes" element={<Clientes />} />
+          <Route path="/coordinador/post-venta" element={<PostVenta />} />
+          <Route path="/coordinador/averias" element={<JefeAverias />} />
+          <Route path="/coordinador/rrhh" element={<RRHH />} />
           <Route path="/coordinador/cambiar-password" element={<ChangePassword />} />
         </Route>
       </Route>
@@ -157,6 +188,7 @@ function AppRoutes() {
           <Route path="/vendedor/cotizacion/:id" element={<DetalleCotizacion />} />
           <Route path="/vendedor/medidas" element={<TomaMedidas />} />
           <Route path="/vendedor/productos" element={<Productos />} />
+          <Route path="/vendedor/clientes" element={<Clientes />} />
           <Route path="/vendedor/cambiar-password" element={<ChangePassword />} />
         </Route>
       </Route>
@@ -175,13 +207,27 @@ function AppRoutes() {
       <Route element={<RoleGuard roles={['instalador']} />}>
         <Route element={<Layout />}>
           <Route path="/instalador" element={<MisInstalaciones />} />
-          <Route path="/instalador/:id" element={<DetalleInstalacion />} />
+          <Route path="/instalador/tracking" element={<InstaladorTracking />} />
+          <Route path="/instalador/averias" element={<InstaladorAverias />} />
           <Route path="/instalador/cambiar-password" element={<ChangePassword />} />
+          <Route path="/instalador/:id" element={<DetalleInstalacion />} />
+        </Route>
+      </Route>
+
+      {/* ── BODEGAS ── */}
+      <Route element={<RoleGuard roles={['bodegas']} />}>
+        <Route element={<Layout />}>
+          <Route path="/bodegas" element={<BodegasDashboard />} />
+          <Route path="/bodegas/ordenes" element={<OrdenesLista />} />
+          <Route path="/bodegas/ordenes/:id" element={<OrdenDetalle />} />
+          <Route path="/bodegas/insumos" element={<BodegasInsumos />} />
+          <Route path="/bodegas/inventario" element={<Inventario />} />
+          <Route path="/bodegas/cambiar-password" element={<ChangePassword />} />
         </Route>
       </Route>
 
       {/* ── CHAT GLOBAL ── */}
-      <Route element={<RoleGuard roles={['superadmin','jefe','gerente','coordinador','vendedor','fabricante','instalador']} />}>
+      <Route element={<RoleGuard roles={['superadmin','jefe','gerente','coordinador','vendedor','fabricante','instalador','bodegas']} />}>
         <Route element={<Layout />}>
           <Route path="/chat" element={<Chat />} />
         </Route>

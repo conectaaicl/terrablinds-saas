@@ -7,7 +7,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     nombre: str
-    rol: Literal["jefe", "coordinador", "vendedor", "fabricante", "instalador"]
+    rol: Literal["jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "bodegas"]
     tenant_id: str
 
 

@@ -9,6 +9,7 @@ Service de órdenes.
   - Historial usa DateTime en lugar de string de fecha
   - change_estado usa máquina de estados de 13 estados (transitions.py)
 """
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
@@ -39,7 +40,7 @@ class OrderService:
             return await self.repo.get_filtered(tenant_id, fabricante_id=user_id)
         if role == RoleEnum.instalador:
             return await self.repo.get_filtered(tenant_id, instalador_id=user_id)
-        # jefe, gerente, coordinador, superadmin (con tenant_id explícito)
+        # jefe, gerente, coordinador, bodegas, superadmin (con tenant_id explícito)
         return await self.repo.get_by_tenant(tenant_id)
 
     async def get_order(self, order_id: int, tenant_id: str) -> Order:
@@ -108,8 +109,10 @@ class OrderService:
 
         # Email al cliente en transiciones marcadas como auto_notify_client
         if rule.auto_notify_client and order.client and order.client.email:
-            import asyncio
+            import json as _json
+            import uuid as _uuid
             from app.tenants.repository import TenantRepository
+            from app.auth.token_store import get_redis
             tenant_nombre = tenant_id  # fallback
             try:
                 tenant_repo = TenantRepository(self.db)
@@ -118,6 +121,22 @@ class OrderService:
                     tenant_nombre = tenant.nombre
             except Exception:
                 pass
+
+            # Cuando el técnico sale a terreno, generar token de seguimiento GPS
+            tracking_url = ""
+            if data.estado == "en_camino":
+                try:
+                    tracking_token = str(_uuid.uuid4())
+                    redis = await get_redis()
+                    await redis.setex(
+                        f"tracking:{tracking_token}",
+                        28800,  # 8 horas
+                        _json.dumps({"order_id": order.id, "tenant_id": tenant_id}),
+                    )
+                    tracking_url = f"https://working.conectaai.cl/#/tracking/{tracking_token}"
+                except Exception:
+                    pass
+
             asyncio.ensure_future(
                 enviar_email_cliente(
                     to_email=order.client.email,
@@ -126,10 +145,46 @@ class OrderService:
                     numero_orden=order.numero,
                     taller_nombre=tenant_nombre,
                     total=f"${order.precio_total:,}".replace(",", "."),
+                    tracking_url=tracking_url,
                 )
             )
 
+        # Auto-crear post_venta de satisfacción cuando la orden se cierra
+        if data.estado in ("cerrada", "instalacion_completada", "cerrado"):
+            asyncio.ensure_future(
+                self._auto_post_venta(order, tenant_id)
+            )
+
         return order
+
+    async def _auto_post_venta(self, order: Order, tenant_id: str) -> None:
+        """Crea automáticamente un post-venta de satisfacción al cerrar la orden."""
+        try:
+            from uuid import uuid4 as _uuid4
+            from app.models.post_venta import PostVenta as _PostVenta
+            # Verificar si ya existe un post_venta para esta orden
+            existing = await self.db.execute(
+                __import__("sqlalchemy", fromlist=["select"]).select(_PostVenta).where(
+                    _PostVenta.order_id == order.id,
+                    _PostVenta.tenant_id == tenant_id,
+                )
+            )
+            if existing.scalar_one_or_none():
+                return  # Ya existe, no crear duplicado
+
+            pv = _PostVenta(
+                id=_uuid4(),
+                tenant_id=tenant_id,
+                order_id=order.id,
+                client_id=order.cliente_id,
+                tipo="satisfaccion",
+                estado="pendiente",
+                descripcion=f"Seguimiento automático — OT #{order.numero}",
+            )
+            self.db.add(pv)
+            await self.db.flush()
+        except Exception as e:
+            print(f"[auto_post_venta] error: {e}", flush=True)
 
     async def assign_fabricante(
         self, order_id: int, data: AssignRequest,

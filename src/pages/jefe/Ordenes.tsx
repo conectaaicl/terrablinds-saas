@@ -7,7 +7,7 @@ import { api } from '../../services/api';
 import { ESTADO_CONFIG } from '../../types';
 import type { EstadoOrden } from '../../types';
 import { Spinner, ErrorMessage } from '../../components/LoadingStates';
-import { Search, Filter, ArrowLeft, Clock, User, Ruler, Palette, ChevronRight, Loader2, ExternalLink } from 'lucide-react';
+import { Search, Filter, ArrowLeft, Clock, User, Ruler, Palette, ChevronRight, Loader2, ExternalLink, Shield } from 'lucide-react';
 
 function GoogleMapsLink({ direccion }: { direccion: string }) {
   const url = `https://maps.google.com/?q=${encodeURIComponent(direccion)}`;
@@ -138,6 +138,12 @@ export function OrdenDetalle() {
   const { execute: asignarIns, loading: assigningIns } = useMutation(
     (uid: number) => api.assignInstalador(numId, uid)
   );
+  const { execute: updateGarantia } = useMutation(
+    (data: { garantia_meses?: number; fecha_instalacion?: string }) => api.updateGarantia(numId, data)
+  );
+
+  const [showGarantia, setShowGarantia] = useState(false);
+  const [garantiaForm, setGarantiaForm] = useState({ garantia_meses: '', fecha_instalacion: '' });
 
   const doChange = useCallback(async (estado: string, notas?: string) => {
     const res = await cambiarEstado(estado, notas);
@@ -301,6 +307,48 @@ export function OrdenDetalle() {
                   if (notas) doChange('cancelada', notas);
                 }} color="red" outline>Cancelar Orden</Btn>
               )}
+              <button
+                onClick={() => {
+                  setGarantiaForm({
+                    garantia_meses: String(orden.garantia_meses || ''),
+                    fecha_instalacion: orden.fecha_instalacion ? orden.fecha_instalacion.slice(0, 10) : '',
+                  });
+                  setShowGarantia(v => !v);
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition">
+                <Shield size={14} /> Configurar Garantía
+              </button>
+              {showGarantia && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-emerald-700 mb-1">Meses de Garantía</label>
+                    <input type="number" min="1" max="120"
+                      value={garantiaForm.garantia_meses}
+                      onChange={e => setGarantiaForm(f => ({ ...f, garantia_meses: e.target.value }))}
+                      placeholder="Ej: 12"
+                      className="block w-full rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-emerald-400" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-emerald-700 mb-1">Fecha de Instalación</label>
+                    <input type="date"
+                      value={garantiaForm.fecha_instalacion}
+                      onChange={e => setGarantiaForm(f => ({ ...f, fecha_instalacion: e.target.value }))}
+                      className="block w-full rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-emerald-400" />
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const payload: { garantia_meses?: number; fecha_instalacion?: string } = {};
+                      if (garantiaForm.garantia_meses) payload.garantia_meses = parseInt(garantiaForm.garantia_meses);
+                      if (garantiaForm.fecha_instalacion) payload.fecha_instalacion = garantiaForm.fecha_instalacion;
+                      await updateGarantia(payload);
+                      setShowGarantia(false);
+                      refetch();
+                    }}
+                    className="w-full py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">
+                    Guardar Garantía
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -310,6 +358,37 @@ export function OrdenDetalle() {
             </h2>
             <Timeline entries={[...(orden.historial || [])].reverse()} />
           </div>
+
+          {/* Garantía */}
+          {orden.garantia_meses && orden.fecha_instalacion && (() => {
+            const fechaInst = new Date(orden.fecha_instalacion);
+            const fechaVence = new Date(fechaInst);
+            fechaVence.setMonth(fechaVence.getMonth() + orden.garantia_meses);
+            const hoy = new Date();
+            const activa = fechaVence > hoy;
+            const diasRestantes = Math.ceil((fechaVence.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+            return (
+              <div className={`rounded-xl border p-4 ${activa ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield size={16} className={activa ? 'text-emerald-600' : 'text-slate-400'} />
+                  <h3 className={`text-sm font-semibold ${activa ? 'text-emerald-800' : 'text-slate-600'}`}>
+                    Garantía {activa ? 'Activa' : 'Vencida'}
+                  </h3>
+                  <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${activa ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                    {orden.garantia_meses} meses
+                  </span>
+                </div>
+                <div className="space-y-1 text-xs text-slate-600">
+                  <p>Instalación: <span className="font-medium">{fmtDate(orden.fecha_instalacion)}</span></p>
+                  <p>Vencimiento: <span className="font-medium">{fechaVence.toLocaleDateString('es-CL')}</span></p>
+                  {activa && <p className={`font-semibold ${diasRestantes <= 30 ? 'text-amber-600' : 'text-emerald-700'}`}>
+                    {diasRestantes} día{diasRestantes !== 1 ? 's' : ''} restantes
+                  </p>}
+                  {!activa && <p className="text-slate-400">Venció hace {Math.abs(diasRestantes)} días</p>}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
