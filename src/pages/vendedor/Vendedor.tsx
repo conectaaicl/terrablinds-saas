@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useApi } from '../../hooks/useApi';
@@ -10,7 +10,8 @@ import { Spinner, ErrorMessage } from '../../components/LoadingStates';
 import {
   ChevronRight, Plus, Trash2, ArrowLeft, Clock, User, Ruler,
   Palette, CheckCircle, Search, ShoppingBag, FileText, Send,
-  CheckCircle2, XCircle, ArrowRight,
+  CheckCircle2, XCircle, ArrowRight, BookOpen, X, Package,
+  RefreshCw,
 } from 'lucide-react';
 
 const fmt = (n: number) => '$' + n.toLocaleString('es-CL');
@@ -176,11 +177,128 @@ export function MisCotizaciones() {
 }
 
 // ═══════════════════════════════════════
+// CATÁLOGO PICKER MODAL
+// ═══════════════════════════════════════
+interface CatalogProduct {
+  id: string; nombre: string; categoria: string; unidad: string;
+  precio_base: number; precio_m2?: number; precio_ml?: number;
+  proveedor?: string; marca?: string; colores?: string[]; materiales?: string[];
+  ancho_min?: number; ancho_max?: number; alto_min?: number; alto_max?: number;
+}
+
+function CatalogoPicker({ onSelect, onClose }: {
+  onSelect: (p: CatalogProduct) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<CatalogProduct[]>([]);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const search = useCallback((term: string) => {
+    if (!term.trim()) { setResults([]); return; }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const data = await api.searchProductos(term, 40);
+        setResults(data || []);
+      } catch { setResults([]); }
+      finally { setLoading(false); }
+    }, 300);
+  }, []);
+
+  const handleQ = (v: string) => { setQ(v); search(v); };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-16 px-4"
+      onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden"
+        onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+          <BookOpen size={18} className="text-slate-500 shrink-0" />
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={e => handleQ(e.target.value)}
+            placeholder="Buscar en catálogo (nombre, proveedor, marca...)"
+            className="flex-1 text-sm outline-none placeholder:text-slate-400"
+          />
+          {loading && <RefreshCw size={14} className="animate-spin text-slate-400 shrink-0" />}
+          <button onClick={onClose} className="shrink-0 text-slate-400 hover:text-slate-600">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Results */}
+        <div className="max-h-[60vh] overflow-y-auto">
+          {results.length === 0 && !loading && q.trim() && (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+              <Package size={32} className="mb-2 opacity-30" />
+              <p className="text-sm">Sin resultados para "{q}"</p>
+            </div>
+          )}
+          {results.length === 0 && !q.trim() && (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+              <Search size={32} className="mb-2 opacity-30" />
+              <p className="text-sm">Escribe para buscar productos</p>
+            </div>
+          )}
+          {results.map(p => (
+            <button key={p.id} onClick={() => { onSelect(p); onClose(); }}
+              className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 mt-0.5">
+                <Package size={15} className="text-slate-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-800 truncate">{p.nombre}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                    {p.categoria}
+                  </span>
+                  {p.proveedor && (
+                    <span className="text-[10px] text-slate-400">{p.proveedor}</span>
+                  )}
+                  {p.marca && (
+                    <span className="text-[10px] text-slate-400">{p.marca}</span>
+                  )}
+                </div>
+                {(p.ancho_min || p.ancho_max) && (
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Ancho: {p.ancho_min}–{p.ancho_max} cm
+                    {(p.alto_min || p.alto_max) && ` · Alto: ${p.alto_min}–${p.alto_max} cm`}
+                  </p>
+                )}
+              </div>
+              <div className="shrink-0 text-right">
+                {p.precio_m2 ? (
+                  <p className="text-sm font-bold text-slate-900">${Number(p.precio_m2).toLocaleString('es-CL')}/m²</p>
+                ) : p.precio_ml ? (
+                  <p className="text-sm font-bold text-slate-900">${Number(p.precio_ml).toLocaleString('es-CL')}/ml</p>
+                ) : (
+                  <p className="text-sm font-bold text-slate-900">${Number(p.precio_base).toLocaleString('es-CL')}</p>
+                )}
+                <p className="text-[10px] text-slate-400">{p.unidad}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════
 // NUEVA COTIZACIÓN (wizard 3 pasos)
 // ═══════════════════════════════════════
 type Producto = {
   tipo: string; ancho: number; alto: number;
   tela: string; color: string; precio: number; notas: string;
+  producto_id?: string; nombre_catalogo?: string; unidad?: string;
 };
 
 export function NuevaCotizacion() {
@@ -191,6 +309,7 @@ export function NuevaCotizacion() {
   const [isNew, setIsNew] = useState(false);
   const [nc, setNc] = useState({ nombre: '', email: '', telefono: '', direccion: '' });
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [showCatalogo, setShowCatalogo] = useState(false);
   const [cp, setCp] = useState<Producto>({
     tipo: TIPOS_PRODUCTO[0], ancho: 100, alto: 100,
     tela: TELAS[0], color: COLORES[0], precio: 0, notas: '',
@@ -206,7 +325,27 @@ export function NuevaCotizacion() {
   const addProd = () => {
     if (!cp.precio) return;
     setProductos(prev => [...prev, { ...cp }]);
-    setCp(p => ({ ...p, precio: 0, notas: '' }));
+    setCp(p => ({ ...p, tipo: TIPOS_PRODUCTO[0], precio: 0, notas: '', producto_id: undefined, nombre_catalogo: undefined }));
+  };
+
+  const handleCatalogoSelect = (p: CatalogProduct) => {
+    const precio = p.precio_m2
+      ? Math.round(p.precio_m2 * (cp.ancho / 100) * (cp.alto / 100))
+      : p.precio_ml
+      ? Math.round(p.precio_ml * (cp.ancho / 100))
+      : p.precio_base;
+    setCp(prev => ({
+      ...prev,
+      tipo: p.nombre,
+      tela: p.materiales?.[0] || prev.tela,
+      color: p.colores?.[0] || prev.color,
+      ancho: p.ancho_min || prev.ancho,
+      alto: p.alto_min || prev.alto,
+      precio,
+      producto_id: p.id,
+      nombre_catalogo: p.nombre,
+      unidad: p.unidad,
+    }));
   };
 
   const rmProd = (i: number) => setProductos(p => p.filter((_, j) => j !== i));
@@ -294,7 +433,24 @@ export function NuevaCotizacion() {
 
       {step === 2 && (
         <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <h2 className="mb-4 text-base font-semibold text-slate-900">Productos</h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-slate-900">Productos</h2>
+            <button
+              onClick={() => setShowCatalogo(true)}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+              style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}
+            >
+              <BookOpen size={13} /> Buscar en Catálogo
+            </button>
+          </div>
+          {cp.nombre_catalogo && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+              <Package size={12} />
+              <span>Desde catálogo: <strong>{cp.nombre_catalogo}</strong></span>
+              <button onClick={() => setCp(p => ({ ...p, producto_id: undefined, nombre_catalogo: undefined }))}
+                className="ml-auto text-blue-400 hover:text-blue-600"><X size={12} /></button>
+            </div>
+          )}
           <div className="mb-4 rounded-lg bg-slate-50 p-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <Sel label="Tipo" value={cp.tipo} opts={TIPOS_PRODUCTO} onChange={v => setCp(p => ({ ...p, tipo: v }))} />
@@ -382,6 +538,13 @@ export function NuevaCotizacion() {
             </button>
           </div>
         </div>
+      )}
+
+      {showCatalogo && (
+        <CatalogoPicker
+          onSelect={handleCatalogoSelect}
+          onClose={() => setShowCatalogo(false)}
+        />
       )}
     </div>
   );

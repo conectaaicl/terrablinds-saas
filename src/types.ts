@@ -1,5 +1,5 @@
 // ── Roles del sistema ──
-export type Rol = 'superadmin' | 'jefe' | 'gerente' | 'coordinador' | 'vendedor' | 'fabricante' | 'instalador';
+export type Rol = 'superadmin' | 'jefe' | 'gerente' | 'coordinador' | 'vendedor' | 'fabricante' | 'instalador' | 'bodegas';
 
 // ── Chat y Catálogo de Productos ──
 export type ChatMessage = {
@@ -98,13 +98,14 @@ export const PIPELINE_ESTADOS: EstadoOrden[] = [
 ];
 
 export const ROL_CONFIG: Record<Rol, { label: string; color: string; bg: string }> = {
-  superadmin: { label: 'Super Admin',   color: 'text-rose-700',    bg: 'bg-rose-500' },
-  jefe:       { label: 'Jefe / Dueño',  color: 'text-amber-700',   bg: 'bg-amber-500' },
-  gerente:    { label: 'Gerente',        color: 'text-orange-700',  bg: 'bg-orange-500' },
-  coordinador:{ label: 'Coordinador',   color: 'text-cyan-700',    bg: 'bg-cyan-500' },
-  vendedor:   { label: 'Vendedor',       color: 'text-blue-700',    bg: 'bg-blue-500' },
-  fabricante: { label: 'Fabricante',     color: 'text-emerald-700', bg: 'bg-emerald-500' },
-  instalador: { label: 'Instalador',     color: 'text-violet-700',  bg: 'bg-violet-500' },
+  superadmin: { label: 'Super Admin',      color: 'text-rose-700',    bg: 'bg-rose-500' },
+  jefe:       { label: 'Jefe / Dueño',     color: 'text-amber-700',   bg: 'bg-amber-500' },
+  gerente:    { label: 'Gerente',           color: 'text-orange-700',  bg: 'bg-orange-500' },
+  coordinador:{ label: 'Coordinador',      color: 'text-cyan-700',    bg: 'bg-cyan-500' },
+  vendedor:   { label: 'Vendedor',          color: 'text-blue-700',    bg: 'bg-blue-500' },
+  fabricante: { label: 'Fabricante',        color: 'text-emerald-700', bg: 'bg-emerald-500' },
+  instalador: { label: 'Instalador',        color: 'text-violet-700',  bg: 'bg-violet-500' },
+  bodegas:    { label: 'Encargado Bodegas', color: 'text-teal-700',    bg: 'bg-teal-500' },
 };
 
 // ── Tenant (marca blanca) ──
@@ -202,11 +203,20 @@ export interface Producto {
   id: string;
   tenant_id: string;
   codigo?: string;
+  codigo_proveedor?: string;
   nombre: string;
   descripcion?: string;
   categoria: string;
+  marca?: string;
+  proveedor?: string;
   unidad: 'm2' | 'ml' | 'unidad';
   precio_base: number;
+  precio_m2?: number;
+  precio_ml?: number;
+  ancho_min?: number;
+  ancho_max?: number;
+  alto_min?: number;
+  alto_max?: number;
   colores: string[];
   materiales: string[];
   specs: Record<string, any>;
