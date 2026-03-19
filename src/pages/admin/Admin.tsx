@@ -281,7 +281,7 @@ function TenantModal({ tenantId, tenants, onClose, onSave }: {
       const res = await updateTenant(tenant.id, { nombre, slug, branding, plan });
       if (res) { onSave(); onClose(); }
     } else {
-      const payload: any = { nombre, slug, branding, activo: true, plan };
+      const payload: any = { id: slug, nombre, slug, branding, activo: true, plan };
       if (jefeNombre.trim()) payload.jefe_nombre = jefeNombre.trim();
       if (jefeEmail.trim()) payload.jefe_email = jefeEmail.trim();
       const res = await createTenant(payload);
@@ -349,13 +349,13 @@ function TenantModal({ tenantId, tenants, onClose, onSave }: {
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">Nombre</label>
               <input value={nombre}
-                onChange={e => { setNombre(e.target.value); if (!tenant) setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '')); }}
+                onChange={e => { setNombre(e.target.value); if (!tenant) setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')); }}
                 required className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500" placeholder="Mi Taller" />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">Slug (URL)</label>
               <input value={slug}
-                onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                 required className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500" placeholder="mitaller" />
             </div>
           </div>
