@@ -128,6 +128,7 @@ function AppRoutes() {
           <Route path="/jefe/ordenes" element={<OrdenesLista />} />
           <Route path="/jefe/ordenes/:id" element={<OrdenDetalle />} />
           <Route path="/jefe/cotizaciones" element={<JefeCotizaciones />} />
+          <Route path="/jefe/cotizaciones/nueva" element={<NuevaCotizacion />} />
           <Route path="/jefe/cotizaciones/:id/imprimir" element={<CotizacionPrint />} />
           <Route path="/jefe/vendedores" element={<VendedoresStats />} />
           <Route path="/jefe/usuarios" element={<Usuarios />} />
@@ -151,6 +152,7 @@ function AppRoutes() {
           <Route path="/gerente/ordenes" element={<OrdenesLista />} />
           <Route path="/gerente/ordenes/:id" element={<OrdenDetalle />} />
           <Route path="/gerente/cotizaciones" element={<JefeCotizaciones />} />
+          <Route path="/gerente/cotizaciones/nueva" element={<NuevaCotizacion />} />
           <Route path="/gerente/cotizaciones/:id/imprimir" element={<CotizacionPrint />} />
           <Route path="/gerente/vendedores" element={<VendedoresStats />} />
           <Route path="/gerente/usuarios" element={<Usuarios />} />

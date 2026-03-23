@@ -372,14 +372,14 @@ export function NuevaCotizacion() {
       precio_total: total,
     });
 
-    if (res) nav('/vendedor');
+    if (res) nav(-1);
   }, [user, selCliente, isNew, nc, productos, total, nav, crearCliente, crearCotizacion]);
 
   const canNext1 = isNew ? nc.nombre.length > 0 : selCliente !== null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <button onClick={() => nav('/vendedor')} className="flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800">
+      <button onClick={() => nav(-1)} className="flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800">
         <ArrowLeft size={15} /> Volver
       </button>
 
@@ -579,7 +579,7 @@ export function PedidoDetalle() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <button onClick={() => nav('/vendedor')} className="flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800">
+      <button onClick={() => nav(-1)} className="flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800">
         <ArrowLeft size={15} /> Volver
       </button>
 
@@ -749,7 +749,7 @@ export function DetalleCotizacion() {
       res = await patch({ estado: 'rechazada' });
     } else if (accion === 'convertir') {
       res = await convertir();
-      if (res) { nav('/vendedor'); return; }
+      if (res) { nav(-1); return; }
     }
     if (res) refetch();
   };
@@ -771,7 +771,7 @@ export function DetalleCotizacion() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <button onClick={() => nav('/vendedor')}
+      <button onClick={() => nav(-1)}
         className="flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800">
         <ArrowLeft size={15} /> Volver
       </button>

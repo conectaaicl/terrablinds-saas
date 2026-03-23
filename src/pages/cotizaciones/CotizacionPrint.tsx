@@ -8,6 +8,7 @@
 import { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 
 const fmt = (n: number) => '$' + Number(n).toLocaleString('es-CL');
@@ -24,7 +25,12 @@ const ESTADO_LABEL: Record<string, string> = {
 
 export default function CotizacionPrint() {
   const { id } = useParams<{ id: string }>();
+  const { tenant } = useAuth();
   const { data: cot, loading, error } = useApi(() => api.getCotizacion(id!), [id]);
+
+  const logoUrl: string | undefined = (tenant?.branding as any)?.logo_url;
+  const brandColor: string = (tenant?.branding as any)?.color_primario || (tenant?.branding as any)?.primaryColor || '#1d4ed8';
+  const tenantNombre: string = tenant?.nombre || 'WorkshopOS';
 
   // Dispara print al cargar los datos
   useEffect(() => {
@@ -96,30 +102,49 @@ export default function CotizacionPrint() {
       }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 36 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: '#0f172a' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
+          {/* Logo / Empresa */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" style={{ height: 56, maxWidth: 160, objectFit: 'contain' }} />
+            ) : (
+              <div style={{
+                width: 56, height: 56, borderRadius: 12,
+                background: brandColor,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 26, flexShrink: 0,
+              }}>
+                🏠
+              </div>
+            )}
+            <div>
+              <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#0f172a' }}>{tenantNombre}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>
+                {(tenant?.branding as any)?.slogan || ''}
+              </p>
+            </div>
+          </div>
+          {/* Cotización info */}
+          <div style={{ textAlign: 'right' }}>
+            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: brandColor }}>
               COTIZACIÓN
             </h1>
-            <p style={{ margin: '4px 0 0', fontSize: 14, color: '#64748b' }}>
-              #{String(cot.numero).padStart(4, '0')} · {fmtDate(String(cot.created_at))}
+            <p style={{ margin: '3px 0 0', fontSize: 14, fontWeight: 600, color: '#0f172a' }}>
+              #{String(cot.numero).padStart(4, '0')}
             </p>
-          </div>
-          <div style={{ textAlign: 'right' }}>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>
+              {fmtDate(String(cot.created_at))}
+            </p>
             <div style={{
-              display: 'inline-block',
-              background: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              borderRadius: 8,
-              padding: '6px 16px',
-              fontSize: 12,
-              fontWeight: 700,
-              color: '#1d4ed8',
+              display: 'inline-block', marginTop: 6,
+              background: '#f0fdf4', border: '1px solid #bbf7d0',
+              borderRadius: 6, padding: '4px 12px',
+              fontSize: 11, fontWeight: 700, color: '#15803d',
             }}>
               {ESTADO_LABEL[cot.estado] || cot.estado}
             </div>
             {cot.valid_until && (
-              <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94a3b8' }}>
+              <p style={{ margin: '5px 0 0', fontSize: 11, color: '#94a3b8' }}>
                 Válida hasta: <strong>{fmtDate(String(cot.valid_until))}</strong>
               </p>
             )}
@@ -188,14 +213,14 @@ export default function CotizacionPrint() {
         {/* Total */}
         <div style={{
           display: 'flex', justifyContent: 'flex-end', marginBottom: 28,
-          padding: '16px 20px',
-          background: '#eff6ff',
+          padding: '16px 24px',
+          background: brandColor + '12',
           borderRadius: 10,
-          border: '1px solid #bfdbfe',
+          border: `1px solid ${brandColor}40`,
         }}>
           <div style={{ textAlign: 'right' }}>
             <p style={{ margin: '0 0 4px', fontSize: 12, color: '#64748b' }}>TOTAL ESTIMADO</p>
-            <p style={{ margin: 0, fontSize: 28, fontWeight: 800, color: '#1d4ed8' }}>{fmt(total)}</p>
+            <p style={{ margin: 0, fontSize: 30, fontWeight: 800, color: brandColor }}>{fmt(total)}</p>
           </div>
         </div>
 
@@ -217,7 +242,7 @@ export default function CotizacionPrint() {
             Precios en CLP incluyen IVA.
           </p>
           <p style={{ margin: '6px 0 0', fontSize: 11, color: '#cbd5e1' }}>
-            Documento generado por WorkshopOS · working.conectaai.cl
+            {tenantNombre} · Documento generado con WorkshopOS
           </p>
         </div>
       </div>

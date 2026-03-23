@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useMatch } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi';
 import { useMutation } from '../../hooks/useMutation';
 import { api } from '../../services/api';
@@ -25,6 +25,8 @@ const COT_ESTADO_CFG: Record<string, { label: string; bg: string; color: string 
 // ═══════════════════════════════════════
 export default function JefeCotizaciones() {
   const navigate = useNavigate();
+  const isGerente = !!useMatch('/gerente/*');
+  const base = isGerente ? '/gerente' : '/jefe';
   const [search, setSearch] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
   const [selected, setSelected] = useState<any | null>(null);
@@ -83,6 +85,12 @@ export default function JefeCotizaciones() {
           <h1 className="text-2xl font-bold text-slate-900">Cotizaciones</h1>
           <p className="text-sm text-slate-500">{cotList.length} cotizaciones del taller</p>
         </div>
+        <button
+          onClick={() => navigate(`${base}/cotizaciones/nueva`)}
+          className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90"
+          style={{ backgroundColor: 'var(--brand-primary)' }}>
+          <Plus size={16} /> Nueva Cotización
+        </button>
       </div>
 
       {/* Stats */}

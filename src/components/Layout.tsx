@@ -352,7 +352,7 @@ export default function Layout() {
   const changePasswordPath = `/${user.rol === 'superadmin' ? 'admin' : user.rol}/cambiar-password`;
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-slate-900">
       {/* Mobile overlay */}
       {open && (
         <div
@@ -509,10 +509,10 @@ export default function Layout() {
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile header */}
-        <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5 lg:hidden shadow-sm">
+        <header className="flex items-center gap-3 border-b border-slate-700 bg-slate-800 px-4 py-2.5 lg:hidden shadow-sm">
           <button
             onClick={() => setOpen(true)}
-            className="rounded-lg p-1 text-slate-600 transition-colors hover:bg-slate-100"
+            className="rounded-lg p-1 text-slate-300 transition-colors hover:bg-slate-700"
           >
             <Menu size={22} />
           </button>
@@ -523,7 +523,7 @@ export default function Layout() {
             >
               <span>{brandEmoji}</span>
             </div>
-            <span className="text-sm font-bold text-slate-800">{brandName}</span>
+            <span className="text-sm font-bold text-slate-100">{brandName}</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             {user.rol !== 'superadmin' && (
@@ -535,7 +535,7 @@ export default function Layout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-slate-900">
           <div className="mx-auto max-w-7xl px-4 py-5 lg:px-6 lg:py-6">
             <Outlet />
           </div>

@@ -117,6 +117,7 @@ export interface TenantBranding {
   sidebarText: string;     // hex sidebar text
   logoEmoji: string;       // emoji or icon identifier
   slogan: string;
+  logo_url?: string;       // URL de imagen del logo (opcional)
 }
 
 export interface Tenant {

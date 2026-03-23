@@ -8,7 +8,7 @@ import type { Rol } from '../../types';
 import { Spinner, ErrorMessage } from '../../components/LoadingStates';
 import { UserPlus, X, Shield } from 'lucide-react';
 
-const ROLES_CREABLES: Rol[] = ['gerente', 'coordinador', 'vendedor', 'fabricante', 'instalador'];
+const ROLES_CREABLES: Rol[] = ['gerente', 'coordinador', 'vendedor', 'fabricante', 'instalador', 'bodegas'];
 
 export default function Usuarios() {
   const { user, tenant } = useAuth();
@@ -63,7 +63,7 @@ export default function Usuarios() {
         </button>
       </div>
 
-      {(['jefe', 'gerente', 'coordinador', 'vendedor', 'fabricante', 'instalador'] as Rol[]).map(r => {
+      {(['jefe', 'gerente', 'coordinador', 'vendedor', 'fabricante', 'instalador', 'bodegas'] as Rol[]).map(r => {
         const list = byRol(r);
         if (list.length === 0) return null;
         const rc = ROL_CONFIG[r];

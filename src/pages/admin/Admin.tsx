@@ -252,6 +252,7 @@ function TenantModal({ tenantId, tenants, onClose, onSave }: {
   const [nombre, setNombre] = useState(tenant?.nombre || '');
   const [slug, setSlug] = useState(tenant?.slug || '');
   const [slogan, setSlogan] = useState(tenant?.branding?.slogan || '');
+  const [logoUrl, setLogoUrl] = useState((tenant?.branding as any)?.logo_url || '');
   const [plan, setPlan] = useState<'trial' | 'basico' | 'pro'>(tenant?.plan || 'trial');
   const [emoji, setEmoji] = useState(tenant?.branding?.logoEmoji || '🏭');
   const [colorPreset, setColorPreset] = useState(0);
@@ -268,6 +269,7 @@ function TenantModal({ tenantId, tenants, onClose, onSave }: {
     ...(tenant?.branding || {}),
     slogan,
     logoEmoji: emoji,
+    logo_url: logoUrl || undefined,
     primaryColor: preset.primary,
     primaryLight: preset.light,
     primaryDark: preset.dark,
@@ -421,6 +423,18 @@ function TenantModal({ tenantId, tenants, onClose, onSave }: {
                     <input value={slogan} onChange={e => setSlogan(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100"
                       placeholder="Calidad que se ve" />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+                      URL del Logo <span className="font-normal text-slate-400">(aparece en cotizaciones PDF)</span>
+                    </label>
+                    <input value={logoUrl} onChange={e => setLogoUrl(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100"
+                      placeholder="https://ejemplo.com/logo.png" />
+                    {logoUrl && (
+                      <img src={logoUrl} alt="preview" className="mt-2 h-10 object-contain rounded"
+                        onError={e => (e.currentTarget.style.display = 'none')} />
+                    )}
                   </div>
                 </div>
 
