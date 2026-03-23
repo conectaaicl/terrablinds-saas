@@ -11,9 +11,10 @@ git pull origin main
 
 echo "==> [2/5] Construyendo frontend (Vite + SingleFile)..."
 docker build -f Dockerfile.frontend --target builder -t workshopos-fe-builder .
-docker create --name _fe_tmp workshopos-fe-builder sh
-docker cp _fe_tmp:/app/dist ./dist
-docker rm _fe_tmp
+docker create --name fe_tmp workshopos-fe-builder sh
+# Copiar archivos del dist interno directamente al dist del host (evita dist/dist anidado)
+docker cp fe_tmp:/app/dist/. ./dist/
+docker rm fe_tmp
 docker rmi workshopos-fe-builder
 echo "   Frontend OK — dist/ generado."
 
