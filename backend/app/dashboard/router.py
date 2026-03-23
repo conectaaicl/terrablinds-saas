@@ -164,3 +164,83 @@ async def stage_metrics(
         ]
     except Exception:
         return []
+
+
+@router.get("/vendedores")
+async def stats_vendedores(
+    token_data: TokenData = Depends(require_roles("jefe", "gerente", "superadmin")),
+    db: AsyncSession = Depends(get_db_for_tenant),
+):
+    """
+    Estadísticas de rendimiento por vendedor:
+    - Órdenes totales y del mes
+    - Monto total generado y del mes
+    - Cotizaciones creadas totales y del mes
+    - Tasa de conversión cotizaciones → órdenes
+    """
+    from datetime import date as _date
+    hoy = _date.today()
+    mes_inicio = _date(hoy.year, hoy.month, 1)
+
+    result = await db.execute(text("""
+        SELECT
+            u.id                                                        AS vendedor_id,
+            u.nombre                                                    AS vendedor_nombre,
+            COUNT(o.id)                                                 AS ordenes_total,
+            COUNT(o.id) FILTER (WHERE DATE(o.created_at) >= :mes)      AS ordenes_mes,
+            COUNT(o.id) FILTER (WHERE o.estado IN ('cerrada','cerrado')) AS cerradas_total,
+            COUNT(o.id) FILTER (
+                WHERE o.estado IN ('cerrada','cerrado')
+                AND DATE(o.created_at) >= :mes
+            )                                                           AS cerradas_mes,
+            COALESCE(SUM(o.precio_total), 0)                            AS monto_total,
+            COALESCE(SUM(o.precio_total) FILTER (
+                WHERE DATE(o.created_at) >= :mes
+            ), 0)                                                       AS monto_mes
+        FROM users u
+        LEFT JOIN orders o ON o.vendedor_id = u.id AND o.tenant_id = :tid
+        WHERE u.tenant_id = :tid
+          AND u.rol = 'vendedor'
+          AND u.activo = true
+        GROUP BY u.id, u.nombre
+        ORDER BY monto_mes DESC, monto_total DESC
+    """), {"tid": token_data.tenant_id, "mes": mes_inicio})
+    order_rows = result.fetchall()
+
+    # Cotizaciones por vendedor (modelo Cotizacion separado)
+    cot_result = await db.execute(text("""
+        SELECT
+            c.vendedor_id,
+            COUNT(*)                                                    AS cot_total,
+            COUNT(*) FILTER (WHERE DATE(c.created_at) >= :mes)         AS cot_mes,
+            COUNT(*) FILTER (WHERE c.estado = 'aceptada')              AS cot_aceptadas,
+            COUNT(*) FILTER (WHERE c.estado = 'convertida')            AS cot_convertidas
+        FROM cotizaciones c
+        WHERE c.tenant_id = :tid
+        GROUP BY c.vendedor_id
+    """), {"tid": token_data.tenant_id, "mes": mes_inicio})
+    cot_map = {r.vendedor_id: r for r in cot_result.fetchall()}
+
+    vendedores = []
+    for r in order_rows:
+        cot = cot_map.get(r.vendedor_id)
+        cot_total = cot.cot_total if cot else 0
+        cot_mes = cot.cot_mes if cot else 0
+        convertidas = (cot.cot_aceptadas or 0) + (cot.cot_convertidas or 0) if cot else 0
+        tasa = round(100.0 * convertidas / cot_total, 1) if cot_total > 0 else 0.0
+
+        vendedores.append({
+            "vendedor_id":    r.vendedor_id,
+            "vendedor_nombre": r.vendedor_nombre,
+            "ordenes_total":  int(r.ordenes_total),
+            "ordenes_mes":    int(r.ordenes_mes),
+            "cerradas_total": int(r.cerradas_total),
+            "cerradas_mes":   int(r.cerradas_mes),
+            "monto_total":    int(r.monto_total),
+            "monto_mes":      int(r.monto_mes),
+            "cot_total":      int(cot_total),
+            "cot_mes":        int(cot_mes),
+            "tasa_conversion": tasa,
+        })
+
+    return vendedores

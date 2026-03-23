@@ -26,8 +26,9 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_MB: int = 10
 
-    # Email (Resend) — opcional; si no está configurado no se envían emails
-    RESEND_API_KEY: str = ""
+    # Email via mail.conectaai.cl — opcional; si no está configurado no se envían emails
+    MAILSAAS_API_KEY: str = ""
+    MAILSAAS_URL: str = "https://mail.conectaai.cl"
     FROM_EMAIL: str = "noreply@works.conectaai.cl"
     FROM_NAME: str = "WorkshopOS"
 

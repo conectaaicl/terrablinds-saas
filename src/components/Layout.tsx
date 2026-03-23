@@ -9,6 +9,7 @@ import {
   FilePlus2, Ruler, CalendarDays, ListTodo,
   Package, Radio, FileText, PackageSearch, KeyRound, Warehouse,
   UserCircle2, HeartHandshake, FolderOpen, Navigation, AlertTriangle,
+  TrendingUp,
 } from 'lucide-react';
 
 type NavItem = {
@@ -36,6 +37,7 @@ function getNavSections(rol: Rol): NavSection[] {
             { to: base, label: 'Dashboard', icon: <LayoutDashboard size={16} />, end: true },
             { to: `${base}/ordenes`, label: 'Órdenes', icon: <ClipboardList size={16} /> },
             { to: `${base}/cotizaciones`, label: 'Cotizaciones', icon: <FileText size={16} /> },
+            { to: `${base}/vendedores`, label: 'Rendimiento Ventas', icon: <TrendingUp size={16} /> },
             { to: `${base}/agenda`, label: 'Agenda', icon: <CalendarDays size={16} /> },
             { to: `${base}/tareas`, label: 'Tareas', icon: <ListTodo size={16} /> },
             { to: `${base}/gps`, label: 'GPS en Vivo', icon: <Radio size={16} /> },
@@ -114,6 +116,12 @@ function getNavSections(rol: Rol): NavSection[] {
           ],
         },
         {
+          heading: 'PERSONAL',
+          items: [
+            { to: '/vendedor/permisos', label: 'Permisos / Vacaciones', icon: <CalendarDays size={16} /> },
+          ],
+        },
+        {
           items: [
             { to: '/chat', label: 'Chat', icon: <MessageCircle size={16} className="text-emerald-400" /> },
           ],
@@ -127,6 +135,12 @@ function getNavSections(rol: Rol): NavSection[] {
           items: [
             { to: '/fabricante', label: 'Cola de Producción', icon: <Factory size={16} />, end: true },
             { to: '/fabricante/solicitudes', label: 'Mis Solicitudes', icon: <PackageSearch size={16} /> },
+          ],
+        },
+        {
+          heading: 'PERSONAL',
+          items: [
+            { to: '/fabricante/permisos', label: 'Permisos / Vacaciones', icon: <CalendarDays size={16} /> },
           ],
         },
         {
@@ -144,6 +158,12 @@ function getNavSections(rol: Rol): NavSection[] {
             { to: '/instalador', label: 'Mis Instalaciones', icon: <Wrench size={16} />, end: true },
             { to: '/instalador/tracking', label: 'GPS / Tracking', icon: <Navigation size={16} /> },
             { to: '/instalador/averias', label: 'Averías / Fallas', icon: <AlertTriangle size={16} /> },
+          ],
+        },
+        {
+          heading: 'PERSONAL',
+          items: [
+            { to: '/instalador/permisos', label: 'Permisos / Vacaciones', icon: <CalendarDays size={16} /> },
           ],
         },
         {

@@ -6,7 +6,7 @@ import { api } from '../../services/api';
 import { Spinner, ErrorMessage } from '../../components/LoadingStates';
 import {
   FileText, Search, ChevronRight, CheckCircle2, XCircle,
-  ArrowRight, Plus, Clock, DollarSign,
+  ArrowRight, Plus, Clock, DollarSign, Printer,
 } from 'lucide-react';
 
 const fmt = (n: number) => '$' + Number(n).toLocaleString('es-CL');
@@ -198,7 +198,16 @@ function DetailPanel({ cot, onClose, onChangeEstado, onConvertir, patching, conv
           <h3 className="font-bold text-slate-900">Cotización #{cot.numero || cot.id}</h3>
           <p className="text-xs text-slate-500">{new Date(cot.created_at).toLocaleDateString('es-CL', { dateStyle: 'long' })}</p>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.open(`/jefe/cotizaciones/${cot.id}/imprimir`, '_blank')}
+            className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200"
+            title="Imprimir / Guardar PDF"
+          >
+            <Printer size={13} /> PDF
+          </button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+        </div>
       </div>
 
       <div className="space-y-4 p-5">

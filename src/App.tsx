@@ -11,6 +11,8 @@ import JefeDashboard from './pages/jefe/Dashboard';
 import { OrdenesLista, OrdenDetalle } from './pages/jefe/Ordenes';
 import Usuarios from './pages/jefe/Usuarios';
 import JefeCotizaciones from './pages/jefe/Cotizaciones';
+import CotizacionPrint from './pages/cotizaciones/CotizacionPrint';
+import VendedoresStats from './pages/jefe/VendedoresStats';
 import { MisCotizaciones, NuevaCotizacion, PedidoDetalle, DetalleCotizacion } from './pages/vendedor/Vendedor';
 import TomaMedidas from './pages/vendedor/TomaMedidas';
 import Chat from './pages/chat/Chat';
@@ -31,6 +33,7 @@ import Inventario from './pages/bodegas/Inventario';
 import Clientes from './pages/clientes/Clientes';
 import PostVenta from './pages/post_venta/PostVenta';
 import RRHH from './pages/rrhh/RRHH';
+import SolicitudesRRHH from './pages/rrhh/SolicitudesRRHH';
 import ReglasMateriales from './pages/jefe/ReglasMateriales';
 import JefeAverias from './pages/jefe/Averias';
 import InstaladorAverias from './pages/instalador/Averias';
@@ -125,6 +128,8 @@ function AppRoutes() {
           <Route path="/jefe/ordenes" element={<OrdenesLista />} />
           <Route path="/jefe/ordenes/:id" element={<OrdenDetalle />} />
           <Route path="/jefe/cotizaciones" element={<JefeCotizaciones />} />
+          <Route path="/jefe/cotizaciones/:id/imprimir" element={<CotizacionPrint />} />
+          <Route path="/jefe/vendedores" element={<VendedoresStats />} />
           <Route path="/jefe/usuarios" element={<Usuarios />} />
           <Route path="/jefe/productos" element={<Productos />} />
           <Route path="/jefe/clientes" element={<Clientes />} />
@@ -146,6 +151,8 @@ function AppRoutes() {
           <Route path="/gerente/ordenes" element={<OrdenesLista />} />
           <Route path="/gerente/ordenes/:id" element={<OrdenDetalle />} />
           <Route path="/gerente/cotizaciones" element={<JefeCotizaciones />} />
+          <Route path="/gerente/cotizaciones/:id/imprimir" element={<CotizacionPrint />} />
+          <Route path="/gerente/vendedores" element={<VendedoresStats />} />
           <Route path="/gerente/usuarios" element={<Usuarios />} />
           <Route path="/gerente/productos" element={<Productos />} />
           <Route path="/gerente/clientes" element={<Clientes />} />
@@ -186,9 +193,11 @@ function AppRoutes() {
           <Route path="/vendedor/nueva" element={<NuevaCotizacion />} />
           <Route path="/vendedor/pedido/:id" element={<PedidoDetalle />} />
           <Route path="/vendedor/cotizacion/:id" element={<DetalleCotizacion />} />
+          <Route path="/vendedor/cotizacion/:id/imprimir" element={<CotizacionPrint />} />
           <Route path="/vendedor/medidas" element={<TomaMedidas />} />
           <Route path="/vendedor/productos" element={<Productos />} />
           <Route path="/vendedor/clientes" element={<Clientes />} />
+          <Route path="/vendedor/permisos" element={<SolicitudesRRHH />} />
           <Route path="/vendedor/cambiar-password" element={<ChangePassword />} />
         </Route>
       </Route>
@@ -198,6 +207,7 @@ function AppRoutes() {
         <Route element={<Layout />}>
           <Route path="/fabricante" element={<ColaProduccion />} />
           <Route path="/fabricante/solicitudes" element={<MisSolicitudes />} />
+          <Route path="/fabricante/permisos" element={<SolicitudesRRHH />} />
           <Route path="/fabricante/:id" element={<DetalleTecnico />} />
           <Route path="/fabricante/cambiar-password" element={<ChangePassword />} />
         </Route>
@@ -209,6 +219,7 @@ function AppRoutes() {
           <Route path="/instalador" element={<MisInstalaciones />} />
           <Route path="/instalador/tracking" element={<InstaladorTracking />} />
           <Route path="/instalador/averias" element={<InstaladorAverias />} />
+          <Route path="/instalador/permisos" element={<SolicitudesRRHH />} />
           <Route path="/instalador/cambiar-password" element={<ChangePassword />} />
           <Route path="/instalador/:id" element={<DetalleInstalacion />} />
         </Route>

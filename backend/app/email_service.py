@@ -1,8 +1,8 @@
 """
-Servicio de email transaccional via Resend API.
+Servicio de email transaccional via mail.conectaai.cl (MailSaaS).
 
-Envía notificaciones al cliente en hitos clave del flujo de OT.
-Si RESEND_API_KEY no está configurado, simplemente no hace nada (modo silencioso).
+Envía notificaciones al cliente en hitos clave del flujo de OT y cotizaciones.
+Si MAILSAAS_API_KEY no está configurado, no hace nada (modo silencioso).
 """
 import logging
 
@@ -12,70 +12,39 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# ─── Plantillas HTML ─────────────────────────────────────────────────────────
+MAILSAAS_URL = "https://mail.conectaai.cl/api/send"
 
-PLANTILLAS: dict[str, dict] = {
-    "cotizacion_enviada": {
-        "subject": "Tu cotización está lista — {taller}",
-        "html": """
-<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-  <h2 style="color:#1e293b">Hola {cliente},</h2>
-  <p>Tu cotización <strong>#{numero}</strong> de <strong>{taller}</strong> ya está lista para revisión.</p>
-  <div style="background:#f8fafc;border-radius:8px;padding:16px;margin:16px 0">
-    <p style="margin:0;font-size:18px;font-weight:bold;color:#0f172a">Total: {total}</p>
-  </div>
-  <p>Para aceptar la cotización o solicitar ajustes, contáctate con nosotros.</p>
-  <p style="color:#64748b;font-size:14px">— Equipo {taller}</p>
-</div>
-""",
-    },
-
-    "instalacion_programada": {
-        "subject": "Tu instalación está agendada — {taller}",
-        "html": """
-<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-  <h2 style="color:#1e293b">Hola {cliente},</h2>
-  <p>Tu instalación de la OT <strong>#{numero}</strong> ha sido <strong>programada</strong>.</p>
-  <div style="background:#eef2ff;border-radius:8px;padding:16px;margin:16px 0;border-left:4px solid #6366f1">
-    <p style="margin:0;font-weight:bold;color:#3730a3">Fecha: {fecha}</p>
-    {direccion_html}
-  </div>
-  <p>Nuestro equipo se presentará en la dirección registrada. Si tienes alguna consulta, no dudes en contactarnos.</p>
-  <p style="color:#64748b;font-size:14px">— Equipo {taller}</p>
-</div>
-""",
-    },
-
-    "en_camino": {
-        "subject": "Tu técnico está en camino — {taller}",
-        "html": """
-<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-  <h2 style="color:#1e293b">Hola {cliente},</h2>
-  <p>¡Buenas noticias! El técnico asignado a tu OT <strong>#{numero}</strong> está <strong>en camino</strong> hacia tu domicilio.</p>
-  <div style="background:#f5f3ff;border-radius:8px;padding:16px;margin:16px 0;border-left:4px solid #8b5cf6">
-    <p style="margin:0;font-weight:bold;color:#6d28d9">Llegará en breve a tu domicilio.</p>
-  </div>
-  {tracking_html}
-  <p style="color:#64748b;font-size:14px">— Equipo {taller}</p>
-</div>
-""",
-    },
-
-    "cerrada": {
-        "subject": "Instalación completada — {taller}",
-        "html": """
-<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-  <h2 style="color:#1e293b">Hola {cliente},</h2>
-  <p>¡Tu instalación de la OT <strong>#{numero}</strong> ha sido <strong>completada exitosamente</strong>! 🎉</p>
-  <div style="background:#f0fdf4;border-radius:8px;padding:16px;margin:16px 0;border-left:4px solid #22c55e">
-    <p style="margin:0;font-weight:bold;color:#166534">Trabajo finalizado con éxito.</p>
-  </div>
-  <p>Gracias por confiar en <strong>{taller}</strong>. Fue un placer trabajar contigo.</p>
-  <p style="color:#64748b;font-size:14px">— Equipo {taller}</p>
-</div>
-""",
-    },
+# Mapeo de estado de OT → template en mail.conectaai.cl
+ESTADO_TEMPLATE: dict[str, str] = {
+    "cotizacion_enviada":    "working_cotizacion_enviada",
+    "instalacion_programada": "working_instalacion_programada",
+    "en_camino":             "working_en_camino",
+    "cerrada":               "working_cerrada",
 }
+
+
+async def _send(api_key: str, from_field: str, to_email: str, template_name: str, variables: dict) -> None:
+    """Envía un email via mail.conectaai.cl. Errores se logean sin romper el flujo."""
+    try:
+        payload = {
+            "from": from_field,
+            "to": [to_email],
+            "template_name": template_name,
+            "variables": variables,
+        }
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.post(
+                MAILSAAS_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            if resp.status_code not in (200, 201):
+                logger.warning("MailSaaS error %s: %s", resp.status_code, resp.text[:200])
+    except Exception as exc:
+        logger.warning("Error enviando email a %s: %s", to_email, exc)
 
 
 async def enviar_email_cliente(
@@ -91,59 +60,60 @@ async def enviar_email_cliente(
     tracking_url: str = "",
 ) -> None:
     """
-    Envía un email al cliente si RESEND_API_KEY está configurado.
-    Fire-and-forget: los errores se logean pero no rompen el flujo.
+    Envía email al cliente cuando cambia el estado de una OT.
+    Solo actúa en estados con template definido; silencioso si la clave no está configurada.
     """
     settings = get_settings()
-    if not settings.RESEND_API_KEY:
-        return  # Email no configurado — silencioso
+    api_key = settings.MAILSAAS_API_KEY
+    if not api_key:
+        return
 
-    plantilla = PLANTILLAS.get(estado)
-    if not plantilla:
-        return  # No hay plantilla para este estado
+    template_name = ESTADO_TEMPLATE.get(estado)
+    if not template_name:
+        return
 
-    direccion_html = (
-        f'<p style="margin:4px 0 0;color:#4f46e5">{direccion}</p>' if direccion else ""
-    )
-    tracking_html = (
-        f'<a href="{tracking_url}" style="display:block;background:#6d28d9;color:#fff;text-align:center;'
-        f'text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:8px;margin:16px 0">'
-        f'📍 Ver ubicación del técnico en tiempo real →</a>'
-        if tracking_url else ""
-    )
+    variables: dict = {
+        "nombre":  to_nombre,
+        "numero":  str(numero_orden),
+        "taller":  taller_nombre,
+        "total":   total,
+        "fecha":   fecha,
+    }
+    if tracking_url:
+        variables["tracking_url"] = tracking_url
 
-    try:
-        _vars = dict(
-            cliente=to_nombre,
-            numero=numero_orden,
-            taller=taller_nombre,
-            total=total,
-            fecha=fecha,
-            direccion_html=direccion_html,
-            tracking_html=tracking_html,
-        )
-        subject = plantilla["subject"].format_map(_vars)
-        html = plantilla["html"].format_map(_vars)
+    from_field = f"{settings.FROM_NAME} <{settings.FROM_EMAIL}>"
+    await _send(api_key, from_field, to_email, template_name, variables)
+    logger.info("Email enviado a %s (estado=%s, template=%s)", to_email, estado, template_name)
 
-        payload = {
-            "from": f"{settings.FROM_NAME} <{settings.FROM_EMAIL}>",
-            "to": [to_email],
-            "subject": subject,
-            "html": html,
-        }
 
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.post(
-                "https://api.resend.com/emails",
-                headers={
-                    "Authorization": f"Bearer {settings.RESEND_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-            if resp.status_code not in (200, 201):
-                logger.warning(
-                    "Resend error %s: %s", resp.status_code, resp.text[:200]
-                )
-    except Exception as exc:
-        logger.warning("Error enviando email a %s: %s", to_email, exc)
+async def enviar_cotizacion_cliente(
+    *,
+    to_email: str,
+    to_nombre: str,
+    numero_cotizacion: int,
+    taller_nombre: str,
+    total: str = "",
+    notas: str = "",
+    valid_until: str = "",
+) -> None:
+    """
+    Envía email al cliente cuando una cotización pasa a estado 'enviada'.
+    """
+    settings = get_settings()
+    api_key = settings.MAILSAAS_API_KEY
+    if not api_key:
+        return
+
+    variables: dict = {
+        "nombre":       to_nombre,
+        "numero":       str(numero_cotizacion),
+        "taller":       taller_nombre,
+        "total":        total,
+        "notas":        notas or "",
+        "valid_until":  valid_until or "",
+    }
+
+    from_field = f"{settings.FROM_NAME} <{settings.FROM_EMAIL}>"
+    await _send(api_key, from_field, to_email, "working_cotizacion_enviada", variables)
+    logger.info("Email cotización enviado a %s (cot #%s)", to_email, numero_cotizacion)

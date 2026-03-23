@@ -1,3 +1,4 @@
+import asyncio
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -5,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cotizaciones import repository as repo
 from app.cotizaciones.schemas import CotizacionCreate, CotizacionOut, CotizacionPatch
+from app.email_service import enviar_cotizacion_cliente
 from app.models.cotizacion import Cotizacion
 
 
@@ -82,10 +84,38 @@ async def actualizar(
         cot.notas = data.notas
     if data.valid_until is not None:
         cot.valid_until = data.valid_until
+    prev_estado = cot.estado
     if data.estado is not None:
         cot.estado = data.estado
     await db.flush()
     await db.refresh(cot, ["client", "vendedor"])
+
+    # Enviar email al cliente cuando la cotización se marca como enviada
+    if data.estado == "enviada" and prev_estado != "enviada":
+        if cot.client and cot.client.email:
+            from app.tenants.repository import TenantRepository
+            taller_nombre = cot.tenant_id
+            try:
+                tenant_repo = TenantRepository(db)
+                tenant = await tenant_repo.get_by_id(cot.tenant_id)
+                if tenant:
+                    taller_nombre = tenant.nombre
+            except Exception:
+                pass
+            total_str = f"${cot.precio_total:,}".replace(",", ".")
+            valid_str = cot.valid_until.strftime("%d/%m/%Y") if cot.valid_until else ""
+            asyncio.ensure_future(
+                enviar_cotizacion_cliente(
+                    to_email=cot.client.email,
+                    to_nombre=cot.client.nombre,
+                    numero_cotizacion=cot.numero,
+                    taller_nombre=taller_nombre,
+                    total=total_str,
+                    notas=cot.notas or "",
+                    valid_until=valid_str,
+                )
+            )
+
     return _to_out(cot)
 
 

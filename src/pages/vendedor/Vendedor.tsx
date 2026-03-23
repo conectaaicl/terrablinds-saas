@@ -317,7 +317,7 @@ export function NuevaCotizacion() {
 
   const { data: clientes } = useApi(() => api.getClients());
   const { execute: crearCliente, loading: creatingCli } = useMutation(api.createClient);
-  const { execute: crearOrden, loading: creatingOrd, error: orderErr } = useMutation(api.createOrder);
+  const { execute: crearCotizacion, loading: creatingCot, error: cotErr } = useMutation(api.createCotizacion);
 
   const clienteList: any[] = clientes || [];
   const total = productos.reduce((s, p) => s + p.precio, 0);
@@ -362,7 +362,7 @@ export function NuevaCotizacion() {
 
     if (!clienteId) return;
 
-    const res = await crearOrden({
+    const res = await crearCotizacion({
       cliente_id: clienteId,
       productos: productos.map(p => ({
         tipo: p.tipo, ancho: p.ancho, alto: p.alto,
@@ -373,7 +373,7 @@ export function NuevaCotizacion() {
     });
 
     if (res) nav('/vendedor');
-  }, [user, selCliente, isNew, nc, productos, total, nav, crearCliente, crearOrden]);
+  }, [user, selCliente, isNew, nc, productos, total, nav, crearCliente, crearCotizacion]);
 
   const canNext1 = isNew ? nc.nombre.length > 0 : selCliente !== null;
 
@@ -501,8 +501,8 @@ export function NuevaCotizacion() {
       {step === 3 && (
         <div className="rounded-xl border border-slate-200 bg-white p-6">
           <h2 className="mb-4 text-base font-semibold text-slate-900">Resumen</h2>
-          {orderErr && (
-            <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{orderErr}</p>
+          {cotErr && (
+            <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{cotErr}</p>
           )}
           <div className="space-y-4">
             <div className="rounded-lg bg-slate-50 p-4">
@@ -532,9 +532,9 @@ export function NuevaCotizacion() {
               className="flex-1 rounded-lg border border-slate-300 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
               Atrás
             </button>
-            <button onClick={crear} disabled={creatingCli || creatingOrd}
+            <button onClick={crear} disabled={creatingCli || creatingCot}
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-60">
-              <CheckCircle size={17} /> {creatingOrd ? 'Creando...' : 'Confirmar Pedido'}
+              <CheckCircle size={17} /> {creatingCot ? 'Guardando...' : 'Crear Cotización'}
             </button>
           </div>
         </div>

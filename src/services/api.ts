@@ -143,9 +143,28 @@ export const api = {
     fetchWithAuth(`/api/v1/tenants/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // ── Clients ────────────────────────────────────────────────
-  getClients: () => fetchWithAuth('/api/v1/clients/'),
-  createClient: (data: { nombre: string; email?: string; telefono?: string; direccion?: string }) =>
+  getClients: (params?: Record<string, string>) => {
+    const qs = params && Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : '';
+    return fetchWithAuth(`/api/v1/clients/${qs}`);
+  },
+  createClient: (data: any) =>
     fetchWithAuth('/api/v1/clients/', { method: 'POST', body: JSON.stringify(data) }),
+  updateClient: (id: number, data: any) =>
+    fetchWithAuth(`/api/v1/clients/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteClient: (id: number) =>
+    fetchWithAuth(`/api/v1/clients/${id}`, { method: 'DELETE' }),
+
+  // ── RRHH ───────────────────────────────────────────────────
+  getRrhhEmpleados: () => fetchWithAuth('/api/v1/rrhh/empleados'),
+  getRrhhDocumentos: (userId: number) => fetchWithAuth(`/api/v1/rrhh/documentos/${userId}`),
+  uploadRrhhDoc: (userId: number, tipo: string, file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('tipo', tipo);
+    return fetchWithAuth(`/api/v1/rrhh/documentos/${userId}`, { method: 'POST', body: fd }, true);
+  },
+  deleteRrhhDoc: (docId: string) =>
+    fetchWithAuth(`/api/v1/rrhh/documentos/${docId}`, { method: 'DELETE' }),
 
   // ── Orders ────────────────────────────────────────────────
   getOrders: () => fetchWithAuth('/api/v1/orders/'),
@@ -205,6 +224,7 @@ export const api = {
   // ── Dashboard ─────────────────────────────────────────────
   getDashboardSummary: () => fetchWithAuth('/api/v1/dashboard/summary'),
   getStageMetrics: () => fetchWithAuth('/api/v1/dashboard/metrics/stages'),
+  getVendedoresStats: () => fetchWithAuth('/api/v1/dashboard/vendedores'),
 
   // ── Chat ──────────────────────────────────────────────────
   getChannels: () => fetchWithAuth('/api/v1/chat/channels'),
@@ -234,10 +254,6 @@ export const api = {
       true,
     );
   },
-
-  // ── Clientes — extendido ───────────────────────────────────
-  updateClient: (id: number, data: { nombre?: string; email?: string; telefono?: string; direccion?: string; rut?: string; notas?: string }) =>
-    fetchWithAuth(`/api/v1/clients/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   // ── Productos / Catálogo ───────────────────────────────────
   getProductos: (categoria?: string) => {
@@ -299,11 +315,26 @@ export const api = {
   createTask: (data: {
     titulo: string; descripcion?: string; asignado_a: number;
     fecha_tarea?: string; prioridad?: string; order_id?: number;
+    hora?: string; tipo_tarea?: string;
+    cliente_nombre?: string; cliente_telefono?: string;
+    direccion?: string; ot_numero?: string; vendedor_nombre?: string;
+    items?: { descripcion: string; ubicacion?: string }[];
+    observaciones?: string[];
   }) => fetchWithAuth('/api/v1/tasks/', { method: 'POST', body: JSON.stringify(data) }),
   updateTask: (id: string, data: { estado?: string; notas_cierre?: string; titulo?: string; prioridad?: string }) =>
     fetchWithAuth(`/api/v1/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteTask: (id: string) =>
     fetchWithAuth(`/api/v1/tasks/${id}`, { method: 'DELETE' }),
+
+  // ── Solicitudes Permisos / Vacaciones ─────────────────────
+  getPermisos: () => fetchWithAuth('/api/v1/permisos/'),
+  createPermiso: (data: {
+    tipo: string; fecha_inicio: string; fecha_fin: string; dias: number; motivo?: string;
+  }) => fetchWithAuth('/api/v1/permisos/', { method: 'POST', body: JSON.stringify(data) }),
+  revisarPermiso: (id: string, data: { estado: string; respuesta?: string }) =>
+    fetchWithAuth(`/api/v1/permisos/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  cancelarPermiso: (id: string) =>
+    fetchWithAuth(`/api/v1/permisos/${id}`, { method: 'DELETE' }),
 
   // ── Checklist de instalación ─────────────────────────────
   getChecklist: (orderId: number) => fetchWithAuth(`/api/v1/orders/${orderId}/checklist`),
