@@ -1,8 +1,13 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, List, Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+
+class TaskItem(BaseModel):
+    descripcion: str
+    ubicacion: Optional[str] = None
 
 
 class TaskCreate(BaseModel):
@@ -12,6 +17,17 @@ class TaskCreate(BaseModel):
     order_id: Optional[int] = None
     fecha_tarea: date = Field(default_factory=date.today)
     prioridad: str = Field(default="normal")   # baja | normal | alta | urgente
+
+    # Campos de agenda
+    hora: Optional[str] = None
+    tipo_tarea: Optional[str] = None     # instalacion | reunion | servicio_tecnico | otro
+    cliente_nombre: Optional[str] = None
+    cliente_telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    ot_numero: Optional[str] = None
+    vendedor_nombre: Optional[str] = None
+    items: Optional[List[TaskItem]] = None
+    observaciones: Optional[List[str]] = None
 
 
 class TaskUpdate(BaseModel):
@@ -40,5 +56,16 @@ class TaskResponse(BaseModel):
     notas_cierre: Optional[str]
     completado_at: Optional[str]
     created_at: str
+
+    # Campos de agenda
+    hora: Optional[str] = None
+    tipo_tarea: Optional[str] = None
+    cliente_nombre: Optional[str] = None
+    cliente_telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    ot_numero: Optional[str] = None
+    vendedor_nombre: Optional[str] = None
+    items: Optional[List[Any]] = None
+    observaciones: Optional[List[str]] = None
 
     model_config = {"from_attributes": True}

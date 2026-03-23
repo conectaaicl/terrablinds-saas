@@ -5,6 +5,8 @@ import {
   Eye, Shield, RefreshCw, Plus, CheckCircle2, AlertCircle
 } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
+import { api, getAccessToken } from '../../services/api'
+import SolicitudesRRHH from './SolicitudesRRHH'
 
 const TIPOS_DOC: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   contrato:           { label: 'Contrato',          icon: <FileText size={14}/>,  color: 'text-blue-600 bg-blue-50 border-blue-200' },
@@ -30,6 +32,7 @@ interface Documento {
 }
 
 export default function RRHH() {
+  const [activeTab, setActiveTab] = useState<'documentos' | 'solicitudes'>('documentos')
   const [selectedUser, setSelectedUser] = useState<Empleado | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -37,10 +40,12 @@ export default function RRHH() {
   const [previewDoc, setPreviewDoc] = useState<Documento | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const { data: empleados = [], loading: loadingEmp, refetch: refetchEmp } = useApi<Empleado[]>('/rrhh/empleados')
+  const { data: empleados = [], loading: loadingEmp, refetch: refetchEmp } = useApi<Empleado[]>(
+    () => api.getRrhhEmpleados(), []
+  )
   const { data: docs = [], loading: loadingDocs, refetch: refetchDocs } = useApi<Documento[]>(
-    selectedUser ? `/rrhh/documentos/${selectedUser.user_id}` : null,
-    { deps: [selectedUser?.user_id] }
+    () => selectedUser ? api.getRrhhDocumentos(selectedUser.user_id) : Promise.resolve([]),
+    [selectedUser?.user_id]
   )
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -56,27 +61,12 @@ export default function RRHH() {
       setUploadError('Archivo demasiado grande (máx. 15 MB)'); return
     }
 
-    const token = localStorage.getItem('ws_token') || sessionStorage.getItem('ws_token') || ''
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('tipo', uploadTipo)
-
     setUploading(true)
     try {
-      const base = (import.meta as any).env?.VITE_API_URL || ''
-      const resp = await fetch(`${base}/api/v1/rrhh/documentos/${selectedUser.user_id}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      })
-      if (!resp.ok) {
-        const err = await resp.json()
-        setUploadError(err.detail || 'Error al subir')
-      } else {
-        refetchDocs(); refetchEmp()
-      }
-    } catch {
-      setUploadError('Error de conexión')
+      await api.uploadRrhhDoc(selectedUser.user_id, uploadTipo, file)
+      refetchDocs(); refetchEmp()
+    } catch (err: any) {
+      setUploadError(err.message || 'Error al subir')
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -85,12 +75,7 @@ export default function RRHH() {
 
   async function handleDelete(doc: Documento) {
     if (!confirm(`¿Eliminar "${doc.nombre_archivo}"?`)) return
-    const token = localStorage.getItem('ws_token') || sessionStorage.getItem('ws_token') || ''
-    const base = (import.meta as any).env?.VITE_API_URL || ''
-    await fetch(`${base}/api/v1/rrhh/documentos/${doc.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    await api.deleteRrhhDoc(doc.id)
     refetchDocs(); refetchEmp()
   }
 
@@ -105,15 +90,28 @@ export default function RRHH() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">RRHH — Documentos</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Gestión de documentos de empleados</p>
+      {/* Header + Tabs */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">RRHH</h1>
+        <div className="mt-3 flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+          <button
+            onClick={() => setActiveTab('documentos')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition ${activeTab === 'documentos' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Documentos
+          </button>
+          <button
+            onClick={() => setActiveTab('solicitudes')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition ${activeTab === 'solicitudes' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Solicitudes
+          </button>
         </div>
       </div>
 
-      <div className="flex gap-4">
+      {activeTab === 'solicitudes' && <SolicitudesRRHH />}
+
+      {activeTab === 'documentos' && <div className="flex gap-4">
         {/* Lista de empleados */}
         <div className="w-64 flex-shrink-0 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
@@ -261,7 +259,7 @@ export default function RRHH() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Preview modal */}
       {previewDoc && previewDoc.url && (

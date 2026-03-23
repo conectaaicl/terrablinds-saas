@@ -15,7 +15,7 @@ import {
   CheckCircle2, AlertTriangle, Clock, User, Ruler, Palette,
   Camera, Navigation, Upload, Loader2, ExternalLink,
   ListTodo, WifiOff, PenLine,
-  RefreshCw, Package,
+  RefreshCw, Package, Phone,
 } from 'lucide-react';
 
 const API_URL = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:8000';
@@ -233,6 +233,10 @@ function ChecklistInstalacion({ orderId }: { orderId: number }) {
 
 
 // ─── Mis Tareas del Día ──────────────────────────────────────
+const TIPO_EMOJI: Record<string, string> = {
+  instalacion: '🟢', servicio_tecnico: '🔧', reunion: '🟡', medicion: '📐', otro: '⚪',
+};
+
 function MisTareasHoy() {
   const { data: tareas, loading, refetch } = useApi(() => api.getMisTareas());
   const { execute: updateTask } = useMutation((id: string, data: any) => api.updateTask(id, data));
@@ -247,38 +251,103 @@ function MisTareasHoy() {
   if (taskList.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-900">
-        <ListTodo size={16} /> Mis Tareas de Hoy ({taskList.length})
-      </h2>
-      <div className="space-y-2">
+    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
+        <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+          <ListTodo size={15} /> Mis Tareas de Hoy
+        </h2>
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-bold text-white">
+          {taskList.length}
+        </span>
+      </div>
+
+      <div className="divide-y divide-slate-50">
         {taskList.map(t => {
-          const pr = PRIORIDAD_CONFIG[t.prioridad] || PRIORIDAD_CONFIG.normal;
           const est = TASK_ESTADO_CONFIG[t.estado] || TASK_ESTADO_CONFIG.pendiente;
+          const emoji = TIPO_EMOJI[t.tipo_tarea || ''] || '⚪';
           return (
-            <div key={t.id} className="flex items-start gap-2.5 rounded-lg border border-slate-100 p-3">
-              <div className={`mt-1 h-2.5 w-1 shrink-0 rounded-full ${pr.dot}`} />
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium text-slate-800 ${t.estado === 'completada' ? 'line-through opacity-60' : ''}`}>
-                  {t.titulo}
-                </p>
-                {t.descripcion && <p className="text-xs text-slate-500">{t.descripcion}</p>}
-                <div className="mt-1 flex gap-1.5">
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${pr.bg} ${pr.color}`}>{pr.label}</span>
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${est.bg} ${est.color}`}>{est.label}</span>
+            <div key={t.id} className={`p-4 ${t.estado === 'completada' ? 'opacity-60' : ''}`}>
+              {/* Header */}
+              <div className="flex items-start gap-2 mb-2">
+                <span className="text-xl flex-shrink-0">{emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {t.hora && <span className="text-xs font-bold text-slate-500">🕐 {t.hora}</span>}
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${est.bg} ${est.color}`}>{est.label}</span>
+                  </div>
+                  <p className={`text-base font-bold text-slate-900 mt-0.5 ${t.estado === 'completada' ? 'line-through' : ''}`}>
+                    {t.cliente_nombre || t.titulo}
+                  </p>
+                </div>
+                {/* Acciones */}
+                <div className="flex-shrink-0">
+                  {t.estado === 'pendiente' && (
+                    <button onClick={() => cambiarEstado(t.id, 'en_progreso')}
+                      className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-600 transition">
+                      Iniciar
+                    </button>
+                  )}
+                  {t.estado === 'en_progreso' && (
+                    <button onClick={() => cambiarEstado(t.id, 'completada')}
+                      className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-600 transition">
+                      ✓ Listo
+                    </button>
+                  )}
                 </div>
               </div>
-              {t.estado === 'pendiente' && (
-                <button onClick={() => cambiarEstado(t.id, 'en_progreso')}
-                  className="shrink-0 rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700 hover:bg-blue-100">
-                  Iniciar
-                </button>
+
+              {/* Datos de contacto */}
+              <div className="ml-8 space-y-1">
+                {t.direccion && (
+                  <a href={`https://waze.com/ul?q=${encodeURIComponent(t.direccion)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex items-start gap-1.5 text-sm text-blue-600 hover:underline">
+                    <MapPin size={13} className="mt-0.5 flex-shrink-0" /> {t.direccion}
+                  </a>
+                )}
+                {t.cliente_telefono && (
+                  <a href={`tel:${t.cliente_telefono}`}
+                    className="flex items-center gap-1.5 text-sm text-slate-700">
+                    <Phone size={13} className="flex-shrink-0 text-slate-400" /> {t.cliente_telefono}
+                  </a>
+                )}
+                {t.ot_numero && (
+                  <p className="text-xs text-slate-500">📝 OT {t.ot_numero}</p>
+                )}
+                {t.vendedor_nombre && (
+                  <p className="text-xs text-slate-400">👨‍💼 Vendedor: {t.vendedor_nombre}</p>
+                )}
+              </div>
+
+              {/* Trabajos */}
+              {(t.descripcion || (t.items && t.items.length > 0)) && (
+                <div className="ml-8 mt-2 rounded-lg bg-slate-50 border border-slate-100 p-2.5">
+                  {t.descripcion && (
+                    <p className="text-sm font-semibold text-slate-700 flex items-center gap-1 mb-1">
+                      <Wrench size={12} /> {t.descripcion}
+                    </p>
+                  )}
+                  {t.items?.map((item, i) => (
+                    <p key={i} className="text-sm text-slate-600 flex gap-1.5 ml-4">
+                      <span className="text-slate-300">•</span>
+                      {item.descripcion}
+                      {item.ubicacion && <span className="text-xs text-slate-400">({item.ubicacion})</span>}
+                    </p>
+                  ))}
+                </div>
               )}
-              {t.estado === 'en_progreso' && (
-                <button onClick={() => cambiarEstado(t.id, 'completada')}
-                  className="shrink-0 rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100">
-                  Listo
-                </button>
+
+              {/* Observaciones */}
+              {t.observaciones && t.observaciones.length > 0 && (
+                <div className="ml-8 mt-2 space-y-0.5">
+                  {t.observaciones.map((obs, i) => (
+                    <p key={i} className="text-xs text-amber-700 flex gap-1">⚠️ {obs}</p>
+                  ))}
+                </div>
+              )}
+
+              {t.notas_cierre && (
+                <p className="ml-8 mt-1.5 text-xs text-emerald-700 italic">✓ "{t.notas_cierre}"</p>
               )}
             </div>
           );

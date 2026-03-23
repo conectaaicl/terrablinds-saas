@@ -8,6 +8,7 @@ import type { Rol } from '../../types';
 import {
   Building2, ClipboardList, Plus, X, Eye, Settings,
   TrendingUp, CheckCircle2, KeyRound, Copy, Check,
+  Globe, Palette, User, Sparkles, ChevronRight, Star, Zap,
 } from 'lucide-react';
 
 
@@ -233,8 +234,14 @@ function TenantUsersPanel({ tenantId }: { tenantId: string }) {
 }
 
 // ═══════════════════════════════════════
-// TENANT MODAL (Create / Edit)
+// TENANT MODAL (Create / Edit) — PRO
 // ═══════════════════════════════════════
+const PLAN_OPTIONS = [
+  { value: 'trial',  label: 'Trial',  desc: 'Gratis 14 días', icon: Zap,  colors: 'border-slate-300 bg-slate-50 text-slate-700' },
+  { value: 'basico', label: 'Básico', desc: 'Hasta 3 usuarios', icon: Star, colors: 'border-blue-300 bg-blue-50 text-blue-700' },
+  { value: 'pro',    label: 'Pro',    desc: 'Ilimitado + IA',  icon: Sparkles, colors: 'border-amber-300 bg-amber-50 text-amber-700' },
+] as const;
+
 function TenantModal({ tenantId, tenants, onClose, onSave }: {
   tenantId: string | null;
   tenants: any[];
@@ -251,13 +258,14 @@ function TenantModal({ tenantId, tenants, onClose, onSave }: {
   const [jefeNombre, setJefeNombre] = useState('');
   const [jefeEmail, setJefeEmail] = useState('');
   const [createdJefe, setCreatedJefe] = useState<{ email: string; password: string } | null>(null);
+  const [step, setStep] = useState<'info' | 'brand' | 'jefe'>('info');
 
   const { execute: createTenant, loading: creating, error: createErr } = useMutation(api.createTenant);
   const { execute: updateTenant, loading: updating, error: updateErr } = useMutation(api.updateTenant);
 
   const preset = COLOR_PRESETS[colorPreset];
-  const branding = tenant ? {
-    ...tenant.branding,
+  const branding = {
+    ...(tenant?.branding || {}),
     slogan,
     logoEmoji: emoji,
     primaryColor: preset.primary,
@@ -265,14 +273,22 @@ function TenantModal({ tenantId, tenants, onClose, onSave }: {
     primaryDark: preset.dark,
     sidebarBg: preset.sidebar,
     sidebarText: preset.sidebarText,
-  } : {
-    primaryColor: preset.primary,
-    primaryLight: preset.light,
-    primaryDark: preset.dark,
-    sidebarBg: preset.sidebar,
-    sidebarText: preset.sidebarText,
-    logoEmoji: emoji,
-    slogan,
+  };
+
+  const handleNombre = (v: string) => {
+    setNombre(v);
+    if (!tenant) {
+      setSlug(v.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9.-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, ''));
+    }
+  };
+
+  const handleSlug = (v: string) => {
+    // Allow a-z, 0-9, hyphens and dots (for domain-style slugs like roller.now)
+    setSlug(v.toLowerCase().replace(/[^a-z0-9.-]/g, ''));
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -299,34 +315,32 @@ function TenantModal({ tenantId, tenants, onClose, onSave }: {
   const loading = creating || updating;
   const err = createErr || updateErr;
 
-  // Show success screen with generated credentials
+  // ── Success screen ──────────────────────────────
   if (createdJefe) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
-              <CheckCircle2 size={22} className="text-emerald-600" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
+          <div className="mb-6 flex flex-col items-center text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100">
+              <CheckCircle2 size={32} className="text-emerald-600" />
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Taller Creado</h2>
-              <p className="text-sm text-slate-500">El usuario jefe fue creado y se le envió un email.</p>
-            </div>
+            <h2 className="text-xl font-bold text-slate-900">¡Taller creado!</h2>
+            <p className="mt-1 text-sm text-slate-500">Comparte estas credenciales con el jefe del taller.</p>
           </div>
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
-            <p className="text-xs font-semibold uppercase text-amber-700">Credenciales del Jefe</p>
-            <div>
-              <p className="text-xs text-amber-600">Email</p>
-              <p className="font-mono text-sm font-semibold text-amber-900">{createdJefe.email}</p>
+          <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-5 space-y-3">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600">Credenciales generadas</p>
+            <div className="rounded-xl bg-white/80 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase text-slate-400">Email</p>
+              <p className="font-mono text-sm font-semibold text-slate-800">{createdJefe.email}</p>
             </div>
-            <div>
-              <p className="text-xs text-amber-600">Contraseña generada</p>
-              <p className="font-mono text-sm font-bold text-amber-900">{createdJefe.password}</p>
+            <div className="rounded-xl bg-white/80 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase text-slate-400">Contraseña temporal</p>
+              <p className="font-mono text-lg font-bold text-amber-700">{createdJefe.password}</p>
             </div>
-            <p className="text-[11px] text-amber-600">Guarda o comparte estas credenciales. No se mostrarán de nuevo.</p>
+            <p className="text-[11px] text-amber-600">⚠️ Guarda estas credenciales. No se mostrarán de nuevo.</p>
           </div>
           <button onClick={onClose}
-            className="mt-4 w-full rounded-lg bg-rose-500 py-2.5 text-sm font-semibold text-white hover:bg-rose-600">
+            className="mt-5 w-full rounded-xl bg-rose-500 py-3 text-sm font-bold text-white shadow-sm hover:bg-rose-600 active:scale-[0.98] transition-all">
             Cerrar
           </button>
         </div>
@@ -334,123 +348,252 @@ function TenantModal({ tenantId, tenants, onClose, onSave }: {
     );
   }
 
+  const steps = tenant
+    ? [{ id: 'info', label: 'Datos', icon: Building2 }, { id: 'brand', label: 'Marca', icon: Palette }]
+    : [{ id: 'info', label: 'Datos', icon: Building2 }, { id: 'brand', label: 'Marca', icon: Palette }, { id: 'jefe', label: 'Jefe', icon: User }];
+  const stepIdx = steps.findIndex(s => s.id === step);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-900">{tenant ? 'Editar Taller' : 'Nuevo Taller'}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl text-xl"
+              style={{ background: `linear-gradient(135deg, ${branding.primaryLight}, ${branding.primaryColor})` }}>
+              {emoji}
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900">{tenant ? 'Editar Taller' : 'Nuevo Taller'}</h2>
+              <p className="text-[11px] text-slate-400">{nombre || 'Sin nombre'} · /{slug || '...'}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+            <X size={17} />
+          </button>
         </div>
 
-        {err && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
+        {/* Step nav */}
+        <div className="flex border-b border-slate-100 px-6">
+          {steps.map((s, i) => (
+            <button key={s.id} type="button" onClick={() => setStep(s.id as any)}
+              className={`flex items-center gap-1.5 border-b-2 px-4 py-3 text-xs font-semibold transition-colors ${
+                step === s.id
+                  ? 'border-rose-500 text-rose-600'
+                  : i < stepIdx
+                  ? 'border-transparent text-emerald-600 hover:text-emerald-700'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}>
+              {i < stepIdx
+                ? <Check size={13} className="text-emerald-500" />
+                : <s.icon size={13} />}
+              {s.label}
+            </button>
+          ))}
+        </div>
 
-        <form onSubmit={submit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Nombre</label>
-              <input value={nombre}
-                onChange={e => { setNombre(e.target.value); if (!tenant) setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')); }}
-                required className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500" placeholder="Mi Taller" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Slug (URL)</label>
-              <input value={slug}
-                onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                required className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500" placeholder="mitaller" />
-            </div>
+        {err && (
+          <div className="mx-6 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {err}
           </div>
+        )}
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Slogan</label>
-            <input value={slogan} onChange={e => setSlogan(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500" placeholder="Tu frase comercial" />
-          </div>
+        <form onSubmit={submit}>
+          <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Plan</label>
-            <select value={plan} onChange={e => setPlan(e.target.value as 'trial' | 'basico' | 'pro')}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500">
-              <option value="trial">Trial</option>
-              <option value="basico">Básico</option>
-              <option value="pro">Pro</option>
-            </select>
-          </div>
+            {/* ── STEP 1: Info ── */}
+            {step === 'info' && (
+              <div className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+                      Nombre del Taller <span className="text-red-400">*</span>
+                    </label>
+                    <input value={nombre} onChange={e => handleNombre(e.target.value)} required
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100"
+                      placeholder="Ej: TerraBlinds" />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+                      Slogan
+                    </label>
+                    <input value={slogan} onChange={e => setSlogan(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100"
+                      placeholder="Calidad que se ve" />
+                  </div>
+                </div>
 
-          {/* Emoji picker */}
-          <div>
-            <label className="mb-2 block text-xs font-medium text-slate-600">Ícono / Logo</label>
-            <div className="flex flex-wrap gap-2">
-              {EMOJI_OPTIONS.map(e => (
-                <button key={e} type="button" onClick={() => setEmoji(e)}
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg border-2 text-lg transition ${
-                    emoji === e ? 'border-rose-400 bg-rose-50' : 'border-slate-200 hover:border-slate-400'
-                  }`}>
-                  {e}
-                </button>
-              ))}
-            </div>
-          </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+                    Slug / ID <span className="text-red-400">*</span>
+                  </label>
+                  <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 transition focus-within:border-rose-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-rose-100">
+                    <span className="flex items-center gap-1.5 border-r border-slate-200 pl-3.5 pr-3 py-2.5 text-xs text-slate-400">
+                      <Globe size={13} /> app/
+                    </span>
+                    <input value={slug} onChange={e => handleSlug(e.target.value)} required
+                      className="flex-1 bg-transparent px-3 py-2.5 text-sm font-mono text-slate-900 outline-none"
+                      placeholder="mi-taller o roller.now" />
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-400">Solo letras minúsculas, números, guiones y puntos.</p>
+                </div>
 
-          {/* Color preset */}
-          <div>
-            <label className="mb-2 block text-xs font-medium text-slate-600">Paleta de Colores</label>
-            <div className="grid grid-cols-4 gap-2">
-              {COLOR_PRESETS.map((cp, i) => (
-                <button key={cp.name} type="button" onClick={() => setColorPreset(i)}
-                  className={`flex items-center gap-2 rounded-lg border-2 p-2 transition ${
-                    colorPreset === i ? 'border-slate-800' : 'border-slate-200 hover:border-slate-400'
-                  }`}>
-                  <div className="h-5 w-5 rounded-full" style={{ backgroundColor: cp.primary }} />
-                  <span className="text-[11px] font-medium text-slate-700">{cp.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Preview */}
-          <div className="rounded-xl border border-slate-200 p-4">
-            <p className="mb-2 text-[11px] font-semibold uppercase text-slate-400">Vista Previa</p>
-            <div className="flex items-center gap-3 rounded-lg p-3" style={{ backgroundColor: branding.sidebarBg }}>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg text-lg"
-                style={{ background: `linear-gradient(135deg, ${branding.primaryLight}, ${branding.primaryColor})` }}>
-                {emoji}
+                {/* Plan selector */}
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-600">Plan</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {PLAN_OPTIONS.map(p => (
+                      <button key={p.value} type="button" onClick={() => setPlan(p.value)}
+                        className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 transition ${
+                          plan === p.value
+                            ? 'border-rose-400 bg-rose-50 shadow-sm'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}>
+                        <p.icon size={18} className={plan === p.value ? 'text-rose-500' : 'text-slate-400'} />
+                        <span className={`text-xs font-bold ${plan === p.value ? 'text-rose-600' : 'text-slate-600'}`}>{p.label}</span>
+                        <span className="text-[10px] text-slate-400">{p.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-bold text-white">{nombre || 'Mi Taller'}</p>
-                <p className="text-[11px]" style={{ color: branding.sidebarText }}>{slogan || 'Tu slogan aquí'}</p>
+            )}
+
+            {/* ── STEP 2: Branding ── */}
+            {step === 'brand' && (
+              <div className="space-y-5">
+                {/* Emoji picker */}
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-600">Ícono del Taller</label>
+                  <div className="flex flex-wrap gap-2">
+                    {EMOJI_OPTIONS.map(e => (
+                      <button key={e} type="button" onClick={() => setEmoji(e)}
+                        className={`flex h-11 w-11 items-center justify-center rounded-xl border-2 text-xl transition ${
+                          emoji === e
+                            ? 'border-rose-400 bg-rose-50 shadow-sm scale-110'
+                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        }`}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Color preset */}
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-600">Paleta de Colores</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {COLOR_PRESETS.map((cp, i) => (
+                      <button key={cp.name} type="button" onClick={() => setColorPreset(i)}
+                        className={`group relative flex flex-col items-center gap-1.5 rounded-xl border-2 p-2.5 transition ${
+                          colorPreset === i ? 'border-slate-800 shadow-sm' : 'border-slate-200 hover:border-slate-300'
+                        }`}>
+                        <div className="flex gap-1">
+                          <div className="h-5 w-5 rounded-full shadow-sm" style={{ backgroundColor: cp.primary }} />
+                          <div className="h-5 w-5 rounded-full shadow-sm" style={{ backgroundColor: cp.sidebar }} />
+                        </div>
+                        <span className="text-[10px] font-semibold text-slate-600">{cp.name}</span>
+                        {colorPreset === i && (
+                          <div className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-slate-800">
+                            <Check size={9} className="text-white" />
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Live preview */}
+                <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+                  <p className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Vista previa del sidebar
+                  </p>
+                  <div className="p-1" style={{ backgroundColor: branding.sidebarBg }}>
+                    <div className="flex items-center gap-3 rounded-xl px-3 py-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl shadow-sm"
+                        style={{ background: `linear-gradient(135deg, ${branding.primaryLight}, ${branding.primaryColor})` }}>
+                        {emoji}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">{nombre || 'Mi Taller'}</p>
+                        <p className="text-[11px]" style={{ color: branding.sidebarText }}>{slogan || 'Tu slogan'}</p>
+                      </div>
+                    </div>
+                    {/* Fake menu items */}
+                    {['Dashboard', 'Órdenes', 'Clientes'].map((item, i) => (
+                      <div key={item} className={`mx-1 mb-0.5 flex items-center gap-2 rounded-lg px-3 py-2 ${i === 0 ? 'bg-white/10' : ''}`}>
+                        <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: i === 0 ? branding.primaryColor : 'transparent', opacity: 0.6 }} />
+                        <span className="text-[11px]" style={{ color: i === 0 ? '#fff' : branding.sidebarText }}>{item}</span>
+                      </div>
+                    ))}
+                    <div className="h-2" />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* ── STEP 3: Jefe (solo creación) ── */}
+            {step === 'jefe' && !tenant && (
+              <div className="space-y-5">
+                <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100">
+                      <User size={15} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-blue-800">Usuario Jefe (opcional)</p>
+                      <p className="mt-0.5 text-[11px] text-blue-600">Si completas estos campos, se crea automáticamente el usuario jefe con acceso completo al taller.</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-600">Nombre completo</label>
+                    <input value={jefeNombre} onChange={e => setJefeNombre(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none transition focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100"
+                      placeholder="Juan Pérez" />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-600">Email</label>
+                    <input type="email" value={jefeEmail} onChange={e => setJefeEmail(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none transition focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100"
+                      placeholder="jefe@mitaller.cl" />
+                  </div>
+                </div>
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+                  Se generará una contraseña temporal. Guárdala — se mostrará una sola vez al crear el taller.
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Jefe (solo en creación) */}
-          {!tenant && (
-            <div className="rounded-xl border border-slate-200 p-4 space-y-3">
-              <p className="text-xs font-semibold uppercase text-slate-500">Usuario Jefe (opcional)</p>
-              <p className="text-[11px] text-slate-400">Si completas estos campos, se crea el jefe automáticamente y se le envía un email con sus credenciales.</p>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">Nombre del Jefe</label>
-                <input value={jefeNombre} onChange={e => setJefeNombre(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
-                  placeholder="Juan Pérez" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">Email del Jefe</label>
-                <input type="email" value={jefeEmail} onChange={e => setJefeEmail(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
-                  placeholder="jefe@mitaller.cl" />
-              </div>
-            </div>
-          )}
-
-          <div className="flex gap-3 pt-2">
+          {/* Footer */}
+          <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
             <button type="button" onClick={onClose}
-              className="flex-1 rounded-lg border border-slate-300 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
               Cancelar
             </button>
-            <button type="submit" disabled={loading}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-500 py-2 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-60">
-              <CheckCircle2 size={15} /> {loading ? 'Guardando...' : (tenant ? 'Guardar' : 'Crear Taller')}
-            </button>
+            <div className="flex items-center gap-2">
+              {stepIdx > 0 && (
+                <button type="button" onClick={() => setStep(steps[stepIdx - 1].id as any)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                  Atrás
+                </button>
+              )}
+              {stepIdx < steps.length - 1 ? (
+                <button type="button" onClick={() => setStep(steps[stepIdx + 1].id as any)}
+                  className="flex items-center gap-2 rounded-xl bg-rose-500 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-rose-600 active:scale-[0.98] transition-all">
+                  Siguiente <ChevronRight size={14} />
+                </button>
+              ) : (
+                <button type="submit" disabled={loading}
+                  className="flex items-center gap-2 rounded-xl bg-rose-500 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-rose-600 active:scale-[0.98] transition-all disabled:opacity-60">
+                  <CheckCircle2 size={15} />
+                  {loading ? 'Guardando...' : (tenant ? 'Guardar cambios' : 'Crear Taller')}
+                </button>
+              )}
+            </div>
           </div>
         </form>
       </div>

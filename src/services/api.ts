@@ -209,6 +209,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ mensaje, tipo }),
     }),
+  markNotificationRead: (id: number) =>
+    fetchWithAuth(`/api/v1/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllNotificationsRead: () =>
+    fetchWithAuth('/api/v1/notifications/mark-all-read', { method: 'POST' }),
 
   // ── Mobile (instalador / fabricante) ──────────────────────
   getMyAgenda: () => fetchWithAuth('/api/v1/mobile/my-agenda'),

@@ -2,7 +2,7 @@ from datetime import date, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import Date, DateTime, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -25,3 +25,14 @@ class DailyTask(Base):
     completado_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # ── Campos de agenda (formato WhatsApp) ──────────────────────
+    hora: Mapped[str | None] = mapped_column(String(10))           # "13:00"
+    tipo_tarea: Mapped[str | None] = mapped_column(String(30))     # instalacion | reunion | servicio_tecnico | otro
+    cliente_nombre: Mapped[str | None] = mapped_column(String(200))
+    cliente_telefono: Mapped[str | None] = mapped_column(String(30))
+    direccion: Mapped[str | None] = mapped_column(Text)
+    ot_numero: Mapped[str | None] = mapped_column(String(50))
+    vendedor_nombre: Mapped[str | None] = mapped_column(String(200))
+    items: Mapped[list | None] = mapped_column(JSONB)              # [{descripcion, ubicacion?}]
+    observaciones: Mapped[list | None] = mapped_column(JSONB)      # ["string", ...]

@@ -166,4 +166,13 @@ async def _enrich(db: AsyncSession, t: DailyTask, tenant_id: str) -> TaskRespons
         notas_cierre=t.notas_cierre,
         completado_at=t.completado_at.isoformat() if t.completado_at else None,
         created_at=t.created_at.isoformat(),
+        hora=t.hora,
+        tipo_tarea=t.tipo_tarea,
+        cliente_nombre=t.cliente_nombre,
+        cliente_telefono=t.cliente_telefono,
+        direccion=t.direccion,
+        ot_numero=t.ot_numero,
+        vendedor_nombre=t.vendedor_nombre,
+        items=t.items,
+        observaciones=t.observaciones,
     )

@@ -240,6 +240,11 @@ export interface GpsLastPosition {
 }
 
 // ── Tareas Diarias ──
+export interface TaskItem {
+  descripcion: string;
+  ubicacion?: string;
+}
+
 export interface DailyTask {
   id: string;
   tenant_id: string;
@@ -256,6 +261,16 @@ export interface DailyTask {
   notas_cierre?: string;
   completado_at?: string;
   created_at: string;
+  // Campos de agenda
+  hora?: string;
+  tipo_tarea?: string;
+  cliente_nombre?: string;
+  cliente_telefono?: string;
+  direccion?: string;
+  ot_numero?: string;
+  vendedor_nombre?: string;
+  items?: TaskItem[];
+  observaciones?: string[];
 }
 
 export const PRIORIDAD_CONFIG = {

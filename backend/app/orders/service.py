@@ -155,7 +155,39 @@ class OrderService:
                 self._auto_post_venta(order, tenant_id)
             )
 
+        # Notificación interna automática
+        asyncio.ensure_future(
+            self._auto_notification(order, data.estado, user_nombre, tenant_id)
+        )
+
         return order
+
+    async def _auto_notification(self, order: Order, nuevo_estado: str, actor: str, tenant_id: str) -> None:
+        """Crea una notificación interna cuando cambia el estado de la orden."""
+        STATE_LABELS: dict[str, str] = {
+            "aceptada":               "aceptada por el cliente",
+            "ot_creada":              "OT creada",
+            "aprobada":               "aprobada",
+            "en_fabricacion":         "en fabricación",
+            "listo_para_instalar":    "lista para instalar",
+            "instalacion_programada": "instalación programada",
+            "en_camino":              "técnico en camino",
+            "instalando":             "instalación en curso",
+            "instalacion_completada": "instalación completada",
+            "cerrada":                "cerrada",
+            "rechazada":              "rechazada",
+            "devuelta":               "devuelta",
+        }
+        label = STATE_LABELS.get(nuevo_estado)
+        if not label:
+            return
+        mensaje = f"OT #{order.numero} → {label} (por {actor})"
+        try:
+            from app.notifications.service import NotificationService
+            noti_service = NotificationService(self.db)
+            await noti_service.create_system_notification(tenant_id, mensaje, tipo="info")
+        except Exception as e:
+            print(f"[auto_notification] error: {e}", flush=True)
 
     async def _auto_post_venta(self, order: Order, tenant_id: str) -> None:
         """Crea automáticamente un post-venta de satisfacción al cerrar la orden."""

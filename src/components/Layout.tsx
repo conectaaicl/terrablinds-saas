@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROL_CONFIG } from '../types';
@@ -9,8 +9,116 @@ import {
   FilePlus2, Ruler, CalendarDays, ListTodo,
   Package, Radio, FileText, PackageSearch, KeyRound, Warehouse,
   UserCircle2, HeartHandshake, FolderOpen, Navigation, AlertTriangle,
-  TrendingUp,
+  TrendingUp, Bell,
 } from 'lucide-react';
+import { api } from '../services/api';
+
+type Notification = {
+  id: number;
+  mensaje: string;
+  tipo: string;
+  leido_por: number[];
+  created_at: string;
+};
+
+function NotificationBell({ userId, light }: { userId: number; light?: boolean }) {
+  const [notis, setNotis] = useState<Notification[]>([]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const fetchNotis = useCallback(async () => {
+    try {
+      const data = await api.getNotifications();
+      setNotis(data || []);
+    } catch {/* ignore */}
+  }, []);
+
+  useEffect(() => {
+    fetchNotis();
+    const id = setInterval(fetchNotis, 30000);
+    return () => clearInterval(id);
+  }, [fetchNotis]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const unread = notis.filter(n => !n.leido_por.includes(userId)).length;
+
+  async function handleMarkRead(id: number) {
+    await api.markNotificationRead(id);
+    setNotis(prev => prev.map(n => n.id === id ? { ...n, leido_por: [...n.leido_por, userId] } : n));
+  }
+
+  async function handleMarkAll() {
+    await api.markAllNotificationsRead();
+    setNotis(prev => prev.map(n => ({ ...n, leido_por: n.leido_por.includes(userId) ? n.leido_por : [...n.leido_por, userId] })));
+  }
+
+  const TIPO_COLOR: Record<string, string> = {
+    info: 'bg-blue-500',
+    alerta: 'bg-amber-500',
+    exito: 'bg-emerald-500',
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${light ? 'hover:bg-slate-100' : 'hover:bg-white/10'}`}
+        title="Notificaciones"
+      >
+        <Bell size={16} className={light ? 'text-slate-600' : 'text-slate-300'} />
+        {unread > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white leading-none">
+            {unread > 9 ? '9+' : unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-10 z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
+            <span className="text-sm font-semibold text-slate-800">Notificaciones</span>
+            {unread > 0 && (
+              <button onClick={handleMarkAll} className="text-[11px] text-rose-500 hover:text-rose-600 font-medium">
+                Marcar todas como leídas
+              </button>
+            )}
+          </div>
+          <div className="max-h-72 overflow-y-auto divide-y divide-slate-50">
+            {notis.length === 0 ? (
+              <p className="py-8 text-center text-xs text-slate-400">Sin notificaciones</p>
+            ) : notis.map(n => {
+              const isUnread = !n.leido_por.includes(userId);
+              return (
+                <div
+                  key={n.id}
+                  onClick={() => isUnread && handleMarkRead(n.id)}
+                  className={`flex gap-2.5 px-4 py-3 cursor-pointer transition-colors hover:bg-slate-50 ${isUnread ? 'bg-blue-50/60' : ''}`}
+                >
+                  <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${TIPO_COLOR[n.tipo] || 'bg-slate-400'}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-[12px] leading-snug ${isUnread ? 'font-medium text-slate-800' : 'text-slate-500'}`}>
+                      {n.mensaje}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">
+                      {new Date(n.created_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 type NavItem = {
   to: string;
@@ -302,6 +410,7 @@ export default function Layout() {
                 {rc.label}
               </span>
             </div>
+            {user.rol !== 'superadmin' && <NotificationBell userId={user.id} />}
           </div>
         </div>
 
@@ -416,9 +525,14 @@ export default function Layout() {
             </div>
             <span className="text-sm font-bold text-slate-800">{brandName}</span>
           </div>
-          <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ${rc.bg}`}>
-            {rc.label}
-          </span>
+          <div className="ml-auto flex items-center gap-2">
+            {user.rol !== 'superadmin' && (
+              <NotificationBell userId={user.id} light />
+            )}
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ${rc.bg}`}>
+              {rc.label}
+            </span>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto">

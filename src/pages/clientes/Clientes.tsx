@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
 import { useMutation } from '../../hooks/useMutation'
+import { api } from '../../services/api'
 
 const ORIGENES = ['web','referido','cotizacion','visita','llamada','redes_sociales','directo','otro']
 const REGIONES = ['Metropolitana de Santiago','Valparaíso',"O'Higgins",'Maule','Biobío',
@@ -55,13 +56,15 @@ export default function Clientes() {
   if (filterOrigen) params.origen = filterOrigen
   if (filterTipo) params.tipo_cliente = filterTipo
 
-  const { data: clients = [], loading, refetch } = useApi<Client[]>(
-    '/clients?' + new URLSearchParams(params).toString(), { deps: [search, filterOrigen, filterTipo] }
+  const { data: rawClients, loading, refetch } = useApi<Client[]>(
+    () => api.getClients(Object.keys(params).length ? params : undefined),
+    [search, filterOrigen, filterTipo]
   )
+  const clients = rawClients ?? []
 
-  const { mutate: createClient, loading: creating } = useMutation('POST', '/clients')
-  const { mutate: updateClient, loading: updating } = useMutation('PATCH', '')
-  const { mutate: deleteClient } = useMutation('DELETE', '')
+  const { execute: createClient, loading: creating } = useMutation(api.createClient)
+  const { execute: updateClient, loading: updating } = useMutation(api.updateClient)
+  const { execute: deleteClient } = useMutation(api.deleteClient)
 
   function openNew() {
     setForm(EMPTY_FORM); setEditClient(null); setTagInput(''); setShowForm(true)
@@ -88,7 +91,7 @@ export default function Clientes() {
     e.preventDefault()
     const payload = { ...form, tags: form.tags }
     if (editClient) {
-      await updateClient(payload, `/clients/${editClient.id}`)
+      await updateClient(editClient.id, payload)
     } else {
       await createClient(payload)
     }
@@ -97,7 +100,7 @@ export default function Clientes() {
 
   async function handleDelete(c: Client) {
     if (!confirm(`¿Eliminar cliente "${c.nombre}"? Esta acción no se puede deshacer.`)) return
-    await deleteClient({}, `/clients/${c.id}`)
+    await deleteClient(c.id)
     if (selected?.id === c.id) setSelected(null)
     refetch()
   }

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import TokenData, get_token_data, require_roles
@@ -52,3 +52,32 @@ async def create_notification(
         leido_por=noti.leido_por or [],
         created_at=noti.created_at.isoformat() if noti.created_at else "",
     )
+
+
+@router.patch("/{notification_id}/read", response_model=NotificationResponse)
+async def mark_as_read(
+    notification_id: int,
+    token_data: TokenData = Depends(get_token_data),
+    db: AsyncSession = Depends(get_db_for_tenant),
+):
+    service = NotificationService(db)
+    noti = await service.mark_as_read(notification_id, token_data.user_id, token_data.tenant_id)
+    if not noti:
+        raise HTTPException(status_code=404, detail="Notificación no encontrada")
+    return NotificationResponse(
+        id=noti.id,
+        tenant_id=noti.tenant_id,
+        mensaje=noti.mensaje,
+        tipo=noti.tipo,
+        leido_por=noti.leido_por or [],
+        created_at=noti.created_at.isoformat() if noti.created_at else "",
+    )
+
+
+@router.post("/mark-all-read", status_code=204)
+async def mark_all_read(
+    token_data: TokenData = Depends(get_token_data),
+    db: AsyncSession = Depends(get_db_for_tenant),
+):
+    service = NotificationService(db)
+    await service.mark_all_read(token_data.tenant_id, token_data.user_id)
