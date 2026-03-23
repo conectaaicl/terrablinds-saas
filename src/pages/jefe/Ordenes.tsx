@@ -7,7 +7,7 @@ import { api } from '../../services/api';
 import { ESTADO_CONFIG } from '../../types';
 import type { EstadoOrden } from '../../types';
 import { Spinner, ErrorMessage } from '../../components/LoadingStates';
-import { Search, Filter, ArrowLeft, Clock, User, Ruler, Palette, ChevronRight, Loader2, ExternalLink, Shield } from 'lucide-react';
+import { Search, Filter, ArrowLeft, Clock, User, Ruler, Palette, ChevronRight, Loader2, ExternalLink, Shield, UserPlus } from 'lucide-react';
 
 function GoogleMapsLink({ direccion }: { direccion: string }) {
   const url = `https://maps.google.com/?q=${encodeURIComponent(direccion)}`;
@@ -25,6 +25,56 @@ const fmtDate = (s: string) => s ? new Date(s).toLocaleDateString('es-CL') : '�
 // ═══════════════════════════════════════════════
 // LISTA DE ÓRDENES
 // ═══════════════════════════════════════════════
+// Quick-assign cell: shows name if assigned, inline select if not (or if clicking assign icon)
+function QuickAssignCell({
+  orderId, currentId, currentNombre, userList, tipo, onAssigned,
+}: {
+  orderId: number; currentId?: number; currentNombre?: string;
+  userList: any[]; tipo: 'fabricante' | 'instalador'; onAssigned: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const doAssign = async (uid: string) => {
+    if (!uid) return;
+    setSaving(true);
+    try {
+      if (tipo === 'fabricante') await api.assignFabricante(orderId, Number(uid));
+      else await api.assignInstalador(orderId, Number(uid));
+      onAssigned();
+    } finally {
+      setSaving(false);
+      setOpen(false);
+    }
+  };
+
+  if (currentId && !open) {
+    return (
+      <div className="flex items-center gap-1 group">
+        <span className="text-xs text-slate-700 font-medium truncate max-w-[90px]">{currentNombre}</span>
+        <button onClick={() => setOpen(true)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-600">
+          <UserPlus size={12} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <select
+      autoFocus={open}
+      value=""
+      disabled={saving}
+      onChange={e => doAssign(e.target.value)}
+      onBlur={() => setOpen(false)}
+      className="rounded border border-slate-300 py-0.5 pl-1.5 pr-6 text-xs text-slate-700 outline-none focus:border-slate-400 max-w-[110px] disabled:opacity-60"
+    >
+      <option value="">— {tipo === 'fabricante' ? 'Fabricante' : 'Instalador'} —</option>
+      {userList.map((u: any) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
+    </select>
+  );
+}
+
 export function OrdenesLista() {
   const isCoord = !!useMatch('/coordinador/*');
   const isGerente = !!useMatch('/gerente/*');
@@ -34,7 +84,11 @@ export function OrdenesLista() {
   const [filtro, setFiltro] = useState('todos');
 
   const { data: orders, loading, error, refetch } = useApi(() => api.getOrders());
+  const { data: fabricantes } = useApi(() => api.getUsersByRole('fabricante'));
+  const { data: instaladores } = useApi(() => api.getUsersByRole('instalador'));
   const orderList: any[] = orders || [];
+  const fabList: any[] = fabricantes || [];
+  const insList: any[] = instaladores || [];
 
   const filtered = useMemo(() => orderList.filter(o => {
     const ms = !search ||
@@ -80,6 +134,8 @@ export function OrdenesLista() {
               <th className="px-4 py-3">Cliente</th>
               <th className="hidden px-4 py-3 md:table-cell">Vendedor</th>
               <th className="px-4 py-3">Estado</th>
+              <th className="hidden px-4 py-3 xl:table-cell">Fabricante</th>
+              <th className="hidden px-4 py-3 xl:table-cell">Instalador</th>
               <th className="hidden px-4 py-3 text-right sm:table-cell">Total</th>
               <th className="hidden px-4 py-3 lg:table-cell">Fecha</th>
               <th className="px-4 py-3"></th>
@@ -95,6 +151,16 @@ export function OrdenesLista() {
                   <td className="hidden px-4 py-3 text-slate-500 md:table-cell">{o.vendedor_nombre || '—'}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                  </td>
+                  <td className="hidden px-4 py-3 xl:table-cell">
+                    <QuickAssignCell
+                      orderId={o.id} currentId={o.fabricante_id} currentNombre={o.fabricante_nombre}
+                      userList={fabList} tipo="fabricante" onAssigned={refetch} />
+                  </td>
+                  <td className="hidden px-4 py-3 xl:table-cell">
+                    <QuickAssignCell
+                      orderId={o.id} currentId={o.instalador_id} currentNombre={o.instalador_nombre}
+                      userList={insList} tipo="instalador" onAssigned={refetch} />
                   </td>
                   <td className="hidden px-4 py-3 text-right font-semibold text-slate-800 sm:table-cell">{fmt(o.precio_total)}</td>
                   <td className="hidden px-4 py-3 text-slate-400 lg:table-cell">{fmtDate(o.created_at)}</td>

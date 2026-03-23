@@ -10,6 +10,14 @@ from app.email_service import enviar_cotizacion_cliente
 from app.models.cotizacion import Cotizacion
 
 
+async def _notificar(db: AsyncSession, tenant_id: str, mensaje: str) -> None:
+    try:
+        from app.notifications.service import NotificationService
+        await NotificationService(db).create_system_notification(tenant_id, mensaje, tipo="info")
+    except Exception as e:
+        print(f"[cotizacion_notification] error: {e}", flush=True)
+
+
 def _to_out(c: Cotizacion) -> CotizacionOut:
     return CotizacionOut(
         id=c.id,
@@ -46,6 +54,10 @@ async def crear(
         valid_until=data.valid_until,
     )
     cot = await repo.create(db, cot)
+    vendedor_nombre = cot.vendedor.nombre if cot.vendedor else f"ID {vendedor_id}"
+    asyncio.ensure_future(
+        _notificar(db, tenant_id, f"Nueva cotización #{cot.numero} creada por {vendedor_nombre}")
+    )
     return _to_out(cot)
 
 
@@ -114,6 +126,21 @@ async def actualizar(
                     notas=cot.notas or "",
                     valid_until=valid_str,
                 )
+            )
+
+    # Notificación interna al cambiar estado
+    if data.estado is not None and data.estado != prev_estado:
+        LABELS = {
+            "enviada":    "enviada al cliente",
+            "aceptada":   "aceptada por el cliente",
+            "rechazada":  "rechazada por el cliente",
+            "convertida": "convertida a OT",
+        }
+        label = LABELS.get(data.estado)
+        if label:
+            vendedor_nombre = cot.vendedor.nombre if cot.vendedor else "vendedor"
+            asyncio.ensure_future(
+                _notificar(db, tenant_id, f"Cot. #{cot.numero} → {label} (por {vendedor_nombre})")
             )
 
     return _to_out(cot)
