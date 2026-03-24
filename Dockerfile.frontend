@@ -7,6 +7,8 @@ RUN npm ci
 
 COPY . .
 
+# URL relativa (mismo dominio) — .env excluido por .dockerignore así que lo seteamos aquí
+ENV VITE_API_URL=
 RUN npm run build
 
 # Segunda etapa: imagen mínima solo para extraer el dist/
