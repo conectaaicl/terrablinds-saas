@@ -325,20 +325,17 @@ export default function Layout() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (tenant?.branding) {
-      const b = tenant.branding;
-      document.documentElement.style.setProperty('--brand-primary', b.primaryColor);
-      document.documentElement.style.setProperty('--brand-light', b.primaryLight);
-      document.documentElement.style.setProperty('--brand-dark', b.primaryDark);
-      document.documentElement.style.setProperty('--sidebar-bg', b.sidebarBg);
-      document.documentElement.style.setProperty('--sidebar-text', b.sidebarText);
-    } else {
-      document.documentElement.style.setProperty('--brand-primary', '#e11d48');
-      document.documentElement.style.setProperty('--brand-light', '#fb7185');
-      document.documentElement.style.setProperty('--brand-dark', '#9f1239');
-      document.documentElement.style.setProperty('--sidebar-bg', '#0f0f23');
-      document.documentElement.style.setProperty('--sidebar-text', '#94a3b8');
-    }
+    const b = tenant?.branding as any;
+    const primary = b?.color_primario || b?.primaryColor || '#1d4ed8';
+    // Derive light/dark from primary or use defaults
+    const light   = b?.primaryLight  || primary;
+    const dark    = b?.primaryDark   || primary;
+    document.documentElement.style.setProperty('--brand-primary', primary);
+    document.documentElement.style.setProperty('--brand-light',   light);
+    document.documentElement.style.setProperty('--brand-dark',    dark);
+    // Sidebar siempre oscuro (azul marino)
+    document.documentElement.style.setProperty('--sidebar-bg',   '#0f172a');
+    document.documentElement.style.setProperty('--sidebar-text', '#94a3b8');
   }, [tenant]);
 
   if (!user) return null;
@@ -348,7 +345,7 @@ export default function Layout() {
   const initials = (user.nombre || 'U').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
   const brandName = user.rol === 'superadmin' ? 'WorkShopOS' : (tenant?.nombre || 'Taller');
   const brandSlogan = user.rol === 'superadmin' ? 'Panel de Administración' : (tenant?.branding?.slogan || 'Gestión de Taller');
-  const brandEmoji = user.rol === 'superadmin' ? '⚡' : (tenant?.branding?.logoEmoji || '🏭');
+  const brandEmoji = user.rol === 'superadmin' ? '⚡' : ((tenant?.branding as any)?.emoji || (tenant?.branding as any)?.logoEmoji || '🏭');
   const changePasswordPath = `/${user.rol === 'superadmin' ? 'admin' : user.rol}/cambiar-password`;
 
   return (
