@@ -42,7 +42,7 @@ async def list_items(
     categoria: Optional[str] = None,
     solo_bajo_minimo: bool = False,
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_VER)),
+    token: TokenData = Depends(require_roles(*_VER)),
 ):
     stmt = select(InventarioItem).where(
         and_(
@@ -70,7 +70,7 @@ async def list_items(
 async def get_item(
     item_id: int,
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_VER)),
+    token: TokenData = Depends(require_roles(*_VER)),
 ):
     item = await _get_or_404(db, InventarioItem, item_id, token.tenant_id)
     d = InventarioItemOut.model_validate(item)
@@ -82,7 +82,7 @@ async def get_item(
 async def create_item(
     body: InventarioItemCreate,
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_MOD)),
+    token: TokenData = Depends(require_roles(*_MOD)),
 ):
     item = InventarioItem(tenant_id=token.tenant_id, **body.model_dump())
     db.add(item)
@@ -98,7 +98,7 @@ async def update_item(
     item_id: int,
     body: InventarioItemUpdate,
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_MOD)),
+    token: TokenData = Depends(require_roles(*_MOD)),
 ):
     item = await _get_or_404(db, InventarioItem, item_id, token.tenant_id)
     for k, v in body.model_dump(exclude_none=True).items():
@@ -114,7 +114,7 @@ async def update_item(
 async def delete_item(
     item_id: int,
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_MOD)),
+    token: TokenData = Depends(require_roles(*_MOD)),
 ):
     item = await _get_or_404(db, InventarioItem, item_id, token.tenant_id)
     item.activo = False
@@ -128,7 +128,7 @@ async def list_movimientos(
     item_id: Optional[int] = None,
     limit: int = Query(100, le=500),
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_VER)),
+    token: TokenData = Depends(require_roles(*_VER)),
 ):
     stmt = (
         select(InventarioMovimiento)
@@ -146,7 +146,7 @@ async def list_movimientos(
 async def create_movimiento(
     body: MovimientoCreate,
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_MOD)),
+    token: TokenData = Depends(require_roles(*_MOD)),
 ):
     item = await _get_or_404(db, InventarioItem, body.item_id, token.tenant_id)
     stock_antes = Decimal(str(item.stock_actual))
@@ -187,7 +187,7 @@ async def create_movimiento(
 async def consumir_materiales_orden(
     order_id: int,
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(["superadmin", "jefe", "gerente", "bodegas", "fabricante"])),
+    token: TokenData = Depends(require_roles(*_MOD, "fabricante")),
 ):
     """
     Descuenta automáticamente materiales del inventario aplicando las reglas
@@ -271,7 +271,7 @@ async def consumir_materiales_orden(
 @router.get("/alertas", response_model=list[InventarioItemOut])
 async def alertas_stock(
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_VER)),
+    token: TokenData = Depends(require_roles(*_VER)),
 ):
     stmt = select(InventarioItem).where(
         InventarioItem.tenant_id == token.tenant_id,
@@ -294,7 +294,7 @@ async def alertas_stock(
 async def list_reglas(
     tipo_producto: Optional[str] = None,
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_VER)),
+    token: TokenData = Depends(require_roles(*_VER)),
 ):
     stmt = select(ReglaMaterial).where(ReglaMaterial.tenant_id == token.tenant_id)
     if tipo_producto:
@@ -315,7 +315,7 @@ async def list_reglas(
 async def create_regla(
     body: ReglaCreate,
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_MOD)),
+    token: TokenData = Depends(require_roles(*_MOD)),
 ):
     regla = ReglaMaterial(tenant_id=token.tenant_id, **body.model_dump())
     db.add(regla)
@@ -332,7 +332,7 @@ async def update_regla(
     regla_id: int,
     body: ReglaUpdate,
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_MOD)),
+    token: TokenData = Depends(require_roles(*_MOD)),
 ):
     regla = await _get_or_404(db, ReglaMaterial, regla_id, token.tenant_id)
     for k, v in body.model_dump(exclude_none=True).items():
@@ -349,7 +349,7 @@ async def update_regla(
 async def delete_regla(
     regla_id: int,
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_MOD)),
+    token: TokenData = Depends(require_roles(*_MOD)),
 ):
     regla = await _get_or_404(db, ReglaMaterial, regla_id, token.tenant_id)
     await db.delete(regla)
@@ -364,7 +364,7 @@ async def calcular_materiales(
     ancho_cm: float,
     alto_cm: float,
     db: AsyncSession = Depends(get_db_for_tenant),
-    token: TokenData = Depends(require_roles(_VER)),
+    token: TokenData = Depends(require_roles(*_VER)),
 ):
     ancho_m = ancho_cm / 100
     alto_m = alto_cm / 100
