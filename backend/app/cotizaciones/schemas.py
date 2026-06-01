@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -39,3 +39,10 @@ class CotizacionOut(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ConvertirResponse(BaseModel):
+    """Response when converting a cotización to an order. Includes the updated
+    cotización plus any stock warnings detected before creating the order."""
+    cotizacion: CotizacionOut
+    stock_warnings: List[str] = []

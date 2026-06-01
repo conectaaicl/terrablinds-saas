@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Mail } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function ForgotPassword() {
@@ -17,73 +17,179 @@ export default function ForgotPassword() {
       await api.forgotPassword(email);
       setSent(true);
     } catch {
-      setError('Ocurrió un error. Inténtalo nuevamente.');
+      setError('Ocurri&oacute; un error. Int&eacute;ntalo nuevamente.');
     } finally {
       setLoading(false);
     }
   };
 
+  const inputBase: React.CSSProperties = {
+    width: '100%', boxSizing: 'border-box',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '12px', padding: '13px 16px',
+    color: '#fff', fontSize: '14px', outline: 'none',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+  };
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = '#6366f1';
+    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)';
+  };
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+    e.currentTarget.style.boxShadow = 'none';
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-[420px]">
-        <div className="mb-6 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 to-rose-600 text-2xl">&#9889;</div>
-          <h1 className="mt-3 text-xl font-bold text-slate-800">WorkShopOS</h1>
+    <div style={{
+      display: 'flex', minHeight: '100vh', alignItems: 'center',
+      justifyContent: 'center', background: '#060b14', padding: '20px',
+      position: 'relative', overflow: 'hidden',
+    }}>
+      {/* Decorative orbs */}
+      <div style={{
+        position: 'absolute', top: '-120px', left: '-120px',
+        width: '480px', height: '480px', borderRadius: '50%',
+        background: 'rgba(99,102,241,0.07)', filter: 'blur(80px)', pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: '-80px', right: '-80px',
+        width: '360px', height: '360px', borderRadius: '50%',
+        background: 'rgba(139,92,246,0.05)', filter: 'blur(80px)', pointerEvents: 'none',
+      }} />
+      {/* Grid lines */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        backgroundImage: 'linear-gradient(rgba(99,102,241,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.04) 1px,transparent 1px)',
+        backgroundSize: '60px 60px',
+      }} />
+
+      <div style={{ width: '100%', maxWidth: '420px', position: 'relative' }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{
+            margin: '0 auto', width: '52px', height: '52px', borderRadius: '14px',
+            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 0 24px rgba(99,102,241,0.45)',
+            fontSize: '22px', fontWeight: 900, color: '#fff',
+          }}>W</div>
+          <h1 style={{ marginTop: '10px', fontSize: '18px', fontWeight: 700, color: '#fff', margin: '10px 0 4px' }}>ConectaWork</h1>
+          <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>Recuperaci&oacute;n de cuenta</p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        {/* Card */}
+        <div style={{
+          background: 'rgba(10,16,32,0.9)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: '20px', padding: '36px',
+          backdropFilter: 'blur(32px)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
+        }}>
           {sent ? (
-            <div className="text-center space-y-4">
-              <CheckCircle2 size={40} className="mx-auto text-emerald-500" />
-              <h2 className="text-lg font-bold text-slate-900">Revisa tu email</h2>
-              <p className="text-sm text-slate-500">
-                Si existe una cuenta con ese email, recibirás un enlace para restablecer tu contraseña.
-                El enlace expira en 1 hora.
-              </p>
-              <Link to="/login"
-                className="inline-flex items-center gap-2 text-sm font-medium text-rose-500 hover:text-rose-700">
-                <ArrowLeft size={15} /> Volver al inicio de sesión
+            <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+              <div style={{
+                width: '64px', height: '64px', borderRadius: '50%',
+                background: 'rgba(16,185,129,0.15)',
+                border: '2px solid rgba(16,185,129,0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '28px', color: '#10b981',
+              }}>&#10003;</div>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: 900, color: '#fff', margin: '0 0 8px' }}>Correo enviado</h2>
+                <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.6, margin: 0 }}>
+                  Revisa tu bandeja (tambi&eacute;n spam). El enlace expira en 1 hora.
+                </p>
+              </div>
+              <Link
+                to="/login"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  fontSize: '13px', color: '#818cf8', textDecoration: 'none',
+                  marginTop: '4px',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none'; }}
+              >
+                <ArrowLeft size={14} /> Volver al inicio de sesi&oacute;n
               </Link>
             </div>
           ) : (
             <>
-              <h2 className="text-xl font-bold text-slate-900">Recuperar contraseña</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.
+              <div style={{ marginBottom: '24px' }}>
+                <Link
+                  to="/login"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    fontSize: '12px', color: '#64748b', textDecoration: 'none',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#818cf8'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#64748b'; }}
+                >
+                  <ArrowLeft size={13} /> Volver al inicio
+                </Link>
+              </div>
+
+              <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#fff', margin: '0 0 8px' }}>
+                Recuperar contrase&ntilde;a
+              </h2>
+              <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 24px', lineHeight: 1.6 }}>
+                Te enviaremos un enlace a tu email para restablecer tu contrase&ntilde;a.
               </p>
 
-              <form onSubmit={submit} className="mt-5 space-y-4">
+              <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {error && (
-                  <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">
-                    <AlertCircle size={15} className="shrink-0" /> {error}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    borderRadius: '10px', background: 'rgba(239,68,68,0.1)',
+                    border: '1px solid rgba(239,68,68,0.25)',
+                    padding: '10px 14px', fontSize: '13px', color: '#fca5a5',
+                  }}>
+                    <AlertCircle size={15} style={{ flexShrink: 0 }} /> {error}
                   </div>
                 )}
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
-                  <div className="relative">
-                    <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                      placeholder="tu@email.com"
-                      className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-3.5 text-sm outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
-                    />
-                  </div>
+                  <label style={{
+                    display: 'block', marginBottom: '6px', fontSize: '11px', fontWeight: 700,
+                    letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b',
+                  }}>Email</label>
+                  <input
+                    type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                    placeholder="tu@email.com"
+                    style={inputBase} onFocus={handleFocus} onBlur={handleBlur}
+                  />
                 </div>
 
-                <button type="submit" disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-600 disabled:opacity-60">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                    border: 'none', borderRadius: '12px', padding: '14px',
+                    color: '#fff', fontSize: '14px', fontWeight: 700,
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.6 : 1,
+                    transition: 'opacity 0.2s, transform 0.2s, box-shadow 0.2s',
+                  }}
+                  onMouseEnter={e => {
+                    if (!loading) {
+                      e.currentTarget.style.opacity = '0.88';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 8px 32px rgba(99,102,241,0.45)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.opacity = loading ? '0.6' : '1';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
                   {loading ? <Loader2 size={16} className="animate-spin" /> : null}
-                  {loading ? 'Enviando...' : 'Enviar enlace de recuperación'}
+                  {loading ? 'Enviando...' : 'Enviar enlace de recuperaci&oacute;n'}
                 </button>
               </form>
-
-              <div className="mt-4 text-center">
-                <Link to="/login"
-                  className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-500">
-                  <ArrowLeft size={13} /> Volver al inicio de sesión
-                </Link>
-              </div>
             </>
           )}
         </div>

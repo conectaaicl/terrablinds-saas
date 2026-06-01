@@ -41,6 +41,8 @@ _MOD = ["superadmin", "jefe", "gerente", "bodegas"]
 async def list_items(
     categoria: Optional[str] = None,
     solo_bajo_minimo: bool = False,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db_for_tenant),
     token: TokenData = Depends(require_roles(*_VER)),
 ):
@@ -63,7 +65,7 @@ async def list_items(
         d = InventarioItemOut.model_validate(item)
         d.bajo_minimo = bajo
         out.append(d)
-    return out
+    return out[skip: skip + limit]
 
 
 @router.get("/items/{item_id}", response_model=InventarioItemOut)

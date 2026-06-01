@@ -1,4 +1,4 @@
-'use client'
+
 import { useState, useRef } from 'react'
 import {
   Upload, FileText, Image, Trash2, Download, X, User2,

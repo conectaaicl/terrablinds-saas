@@ -2,11 +2,12 @@
 CRM de Clientes — CRUD completo + búsqueda + webhooks n8n.
 """
 import asyncio
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_roles, TokenData
+from app.auth.router import limiter
 from app.clients.schemas import ClientCreate, ClientUpdate, ClientResponse
 from app.dependencies import get_db_for_tenant
 from app.models.client import Client
@@ -24,8 +25,8 @@ async def list_clients(
     q: str | None = Query(None, description="Buscar por nombre, email, teléfono, RUT, empresa"),
     origen: str | None = None,
     tipo_cliente: str | None = None,
-    limit: int = Query(100, le=500),
-    offset: int = 0,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     token_data: TokenData = Depends(require_roles(*ROLES_READ)),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
@@ -47,13 +48,15 @@ async def list_clients(
     if tipo_cliente:
         query = query.where(Client.tipo_cliente == tipo_cliente)
 
-    query = query.order_by(Client.created_at.desc()).offset(offset).limit(limit)
+    query = query.order_by(Client.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
 
 
 @router.post("/", response_model=ClientResponse, status_code=201)
+@limiter.limit("30/minute")
 async def create_client(
+    request: Request,
     data: ClientCreate,
     token_data: TokenData = Depends(require_roles(*ROLES_WRITE)),
     db: AsyncSession = Depends(get_db_for_tenant),
@@ -111,7 +114,24 @@ async def delete_client(
     token_data: TokenData = Depends(require_roles(*ROLES_DELETE)),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
+    from app.models.order import Order
     client = await _get_or_404(db, client_id, token_data.tenant_id)
+
+    # Verificar que no tenga ordenes activas
+    ESTADOS_FINALES = ("cerrada", "cancelada", "rechazada")
+    active_orders_result = await db.execute(
+        select(Order).where(
+            Order.cliente_id == client_id,
+            Order.tenant_id == token_data.tenant_id,
+            Order.estado.notin_(ESTADOS_FINALES),
+        ).limit(1)
+    )
+    if active_orders_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede eliminar un cliente con ordenes activas. Cierra o cancela sus ordenes primero.",
+        )
+
     await db.delete(client)
 
 

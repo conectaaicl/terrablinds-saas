@@ -2,8 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAccessToken } from '../services/api';
 
 const WS_URL = (() => {
-  const api = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
-  // Convertir http → ws, https → wss
+  const api = import.meta.env.VITE_API_URL;
+  // Si VITE_API_URL está vacío o no definido, usar la misma origin de la página
+  // para construir la URL del WebSocket (relativo al host actual).
+  if (!api) {
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    return proto + '://' + window.location.host;
+  }
+  // Si viene una URL completa (http/https), convertir a ws/wss
   return api.replace(/^http/, 'ws');
 })();
 

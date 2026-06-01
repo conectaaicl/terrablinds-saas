@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import TokenData, require_roles
 from app.auth.service import hash_password
-from app.database import get_db
+from app.database import get_db, get_db_bypass_rls
 from app.dependencies import get_db_for_tenant, set_tenant_context
 from app.users.repository import UserRepository
 from app.users.schemas import UserCreate, UserResponse
@@ -54,7 +54,7 @@ async def create_user(
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
     service = UserService(db)
-    user = await service.create_user(
+    user, plain_password = await service.create_user(
         data,
         creator_role=token_data.role,
         creator_tenant_id=token_data.tenant_id,
@@ -94,18 +94,60 @@ async def toggle_user(
 @router.post("/{user_id}/reset-password")
 async def reset_user_password(
     user_id: int,
-    token_data: TokenData = Depends(require_roles("superadmin")),
-    db: AsyncSession = Depends(get_db),
+    token_data: TokenData = Depends(require_roles("superadmin", "jefe", "gerente")),
+    db: AsyncSession = Depends(get_db_bypass_rls),
 ):
-    """Superadmin: genera y asigna una nueva contraseña temporal a cualquier usuario."""
+    """Resetea la contraseña de un usuario y envía email con las nuevas credenciales.
+    Superadmin: cualquier usuario. Jefe/gerente: solo usuarios de su tenant."""
+    import logging
+    logger = logging.getLogger(__name__)
+
     from app.tenants.service import _generate_password
+    from app.tenants.repository import TenantRepository
+
     repo = UserRepository(db)
     user = await repo.get_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # Jefe/gerente solo pueden resetear usuarios de su propio tenant
+    if token_data.role != "superadmin":
+        if not token_data.tenant_id or user.tenant_id != token_data.tenant_id:
+            raise HTTPException(status_code=403, detail="Sin permiso para este usuario")
+
     new_password = _generate_password()
     await repo.update_password(user_id, hash_password(new_password))
-    return {"user_id": user_id, "email": user.email, "new_password": new_password}
+
+    # Obtener nombre del taller
+    taller_nombre = user.tenant_id or "tu taller"
+    if user.tenant_id:
+        try:
+            t_repo = TenantRepository(db)
+            tenant = await t_repo.get_by_id(user.tenant_id)
+            if tenant:
+                taller_nombre = tenant.nombre
+        except Exception as e:
+            logger.warning(f"No se pudo obtener nombre del taller: {e}")
+
+    # Enviar email con nueva contraseña
+    try:
+        from app.email import send_user_welcome
+        await send_user_welcome(
+            to_email=user.email,
+            nombre=user.nombre,
+            rol=user.rol.value,
+            taller_nombre=taller_nombre,
+            password=new_password,
+        )
+        logger.info(f"Email de nueva contraseña enviado a {user.email}")
+    except Exception as e:
+        logger.error(f"Error enviando email de nueva contraseña a {user.email}: {e}")
+
+    return {
+        "user_id": user_id,
+        "email": user.email,
+        "message": "Contraseña reseteada y enviada al usuario por email",
+    }
 
 
 @router.get("/by-role/{role}", response_model=list[UserResponse])

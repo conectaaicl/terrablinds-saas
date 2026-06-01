@@ -9,7 +9,7 @@ import {
   FilePlus2, Ruler, CalendarDays, ListTodo,
   Package, Radio, FileText, PackageSearch, KeyRound, Warehouse,
   UserCircle2, HeartHandshake, FolderOpen, Navigation, AlertTriangle,
-  TrendingUp, Bell,
+  TrendingUp, Bell, DollarSign, ClipboardCheck,
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -166,6 +166,8 @@ function getNavSections(rol: Rol): NavSection[] {
             { to: `${base}/productos`, label: 'Catálogo', icon: <Package size={16} /> },
             { to: `${base}/rrhh`, label: 'RRHH Docs', icon: <FolderOpen size={16} /> },
             { to: `${base}/reglas-materiales`, label: 'Reglas Materiales', icon: <Wrench size={16} /> },
+            { to: `${base}/comisiones`, label: 'Comisiones', icon: <DollarSign size={16} /> },
+            { to: `${base}/registro-trabajo`, label: 'Registro de Trabajo', icon: <ClipboardCheck size={16} /> },
           ],
         },
         {
@@ -202,6 +204,7 @@ function getNavSections(rol: Rol): NavSection[] {
             { to: '/coordinador/usuarios', label: 'Usuarios', icon: <Users size={16} /> },
             { to: '/coordinador/productos', label: 'Catálogo', icon: <Package size={16} /> },
             { to: '/coordinador/rrhh', label: 'RRHH Docs', icon: <FolderOpen size={16} /> },
+            { to: '/coordinador/registro-trabajo', label: 'Registro de Trabajo', icon: <ClipboardCheck size={16} /> },
           ],
         },
         {
@@ -227,6 +230,7 @@ function getNavSections(rol: Rol): NavSection[] {
           heading: 'PERSONAL',
           items: [
             { to: '/vendedor/permisos', label: 'Permisos / Vacaciones', icon: <CalendarDays size={16} /> },
+            { to: '/vendedor/mis-ganancias', label: 'Mis Ganancias', icon: <DollarSign size={16} /> },
           ],
         },
         {
@@ -249,6 +253,7 @@ function getNavSections(rol: Rol): NavSection[] {
           heading: 'PERSONAL',
           items: [
             { to: '/fabricante/permisos', label: 'Permisos / Vacaciones', icon: <CalendarDays size={16} /> },
+            { to: '/fabricante/mis-ganancias', label: 'Mis Ganancias', icon: <DollarSign size={16} /> },
           ],
         },
         {
@@ -272,6 +277,7 @@ function getNavSections(rol: Rol): NavSection[] {
           heading: 'PERSONAL',
           items: [
             { to: '/instalador/permisos', label: 'Permisos / Vacaciones', icon: <CalendarDays size={16} /> },
+            { to: '/instalador/mis-ganancias', label: 'Mis Ganancias', icon: <DollarSign size={16} /> },
           ],
         },
         {
@@ -343,7 +349,7 @@ export default function Layout() {
   const sections = getNavSections(user.rol);
   const rc = ROL_CONFIG[user.rol] || { label: user.rol, bg: 'bg-slate-500', color: 'text-slate-700' };
   const initials = (user.nombre || 'U').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-  const brandName = user.rol === 'superadmin' ? 'WorkShopOS' : (tenant?.nombre || 'Taller');
+  const brandName = user.rol === 'superadmin' ? 'ConectaWork' : (tenant?.nombre || 'Taller');
   const brandSlogan = user.rol === 'superadmin' ? 'Panel de Administración' : (tenant?.branding?.slogan || 'Gestión de Taller');
   const brandEmoji = user.rol === 'superadmin' ? '⚡' : ((tenant?.branding as any)?.emoji || (tenant?.branding as any)?.logoEmoji || '🏭');
   const changePasswordPath = `/${user.rol === 'superadmin' ? 'admin' : user.rol}/cambiar-password`;

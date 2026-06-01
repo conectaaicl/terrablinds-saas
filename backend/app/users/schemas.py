@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str
+    password: Optional[str] = None  # Si no se provee, el sistema genera una contraseña segura
     nombre: str
     rol: Literal["jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "bodegas"]
     tenant_id: str

@@ -100,3 +100,25 @@ class EstadoChange(BaseModel):
 
 class AssignRequest(BaseModel):
     usuario_id: int
+
+
+class SignatureRequest(BaseModel):
+    firma_data: str
+    firmante_nombre: str
+    firmante_rut: Optional[str] = None
+    firmante_email: Optional[str] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+
+
+class ChecklistSave(BaseModel):
+    items: dict
+
+
+class SubestadoUpdate(BaseModel):
+    subestado: str
+
+
+class GarantiaUpdate(BaseModel):
+    garantia_meses: Optional[int] = None
+    fecha_instalacion: Optional[str] = None

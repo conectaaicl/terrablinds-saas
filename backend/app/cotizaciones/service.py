@@ -2,10 +2,16 @@ import asyncio
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cotizaciones import repository as repo
-from app.cotizaciones.schemas import CotizacionCreate, CotizacionOut, CotizacionPatch
+from app.cotizaciones.schemas import (
+    ConvertirResponse,
+    CotizacionCreate,
+    CotizacionOut,
+    CotizacionPatch,
+)
 from app.email_service import enviar_cotizacion_cliente
 from app.models.cotizacion import Cotizacion
 
@@ -38,6 +44,86 @@ def _to_out(c: Cotizacion) -> CotizacionOut:
     )
 
 
+def _calc_cantidad(regla, area_m2: float, ancho_m: float, alto_m: float) -> float:
+    """Replicate the formula logic from inventario/router.py._calcular_cantidad."""
+    formula = regla.formula
+    factor = float(regla.factor)
+    if formula == "m2":
+        base = area_m2
+    elif formula in ("ml", "ancho"):
+        base = ancho_m
+    elif formula == "alto":
+        base = alto_m
+    elif formula == "unidad_fija":
+        return float(regla.cantidad_fija or 1) * factor
+    else:
+        base = area_m2
+    return base * factor
+
+
+async def _check_stock_warnings(
+    db: AsyncSession, productos: list, tenant_id: str
+) -> list[str]:
+    """Check stock availability for every product line.
+
+    Compares required quantity (derived from ReglaMaterial formulas) against
+    current InventarioItem.stock_actual. Returns human-readable warning strings
+    for every shortage detected. An empty list means all items are covered.
+    """
+    from app.models.inventario import InventarioItem, ReglaMaterial
+
+    warnings: list[str] = []
+
+    for prod in productos:
+        tipo = prod.get("tipo") or prod.get("nombre", "")
+        ancho_cm = float(prod.get("ancho", 0))
+        alto_cm = float(prod.get("alto", 0))
+        ancho_m = ancho_cm / 100
+        alto_m = alto_cm / 100
+        area_m2 = ancho_m * alto_m
+        cantidad_prod = int(prod.get("cantidad", 1))
+        prod_label = prod.get("nombre") or tipo
+
+        reglas_result = await db.execute(
+            select(ReglaMaterial).where(
+                ReglaMaterial.tenant_id == tenant_id,
+                ReglaMaterial.tipo_producto == tipo,
+                ReglaMaterial.item_id.isnot(None),
+            )
+        )
+        reglas = reglas_result.scalars().all()
+
+        for regla in reglas:
+            cantidad_requerida = (
+                _calc_cantidad(regla, area_m2, ancho_m, alto_m) * cantidad_prod
+            )
+            if cantidad_requerida <= 0:
+                continue
+
+            item_result = await db.execute(
+                select(InventarioItem).where(
+                    InventarioItem.id == regla.item_id,
+                    InventarioItem.tenant_id == tenant_id,
+                )
+            )
+            item = item_result.scalar_one_or_none()
+            if item is None:
+                continue
+
+            stock = float(item.stock_actual)
+            if stock < cantidad_requerida:
+                faltante = round(cantidad_requerida - stock, 3)
+                unidad = item.unidad or "unidades"
+                warnings.append(
+                    f"Stock insuficiente de {item.nombre}: necesita "
+                    f"{round(cantidad_requerida, 3)} {unidad}, "
+                    f"disponible {round(stock, 3)} {unidad} "
+                    f"(faltan {faltante} {unidad}) para {prod_label}"
+                )
+
+    return warnings
+
+
 async def crear(
     db: AsyncSession, data: CotizacionCreate, vendedor_id: int, tenant_id: str
 ) -> CotizacionOut:
@@ -56,7 +142,7 @@ async def crear(
     cot = await repo.create(db, cot)
     vendedor_nombre = cot.vendedor.nombre if cot.vendedor else f"ID {vendedor_id}"
     asyncio.ensure_future(
-        _notificar(db, tenant_id, f"Nueva cotización #{cot.numero} creada por {vendedor_nombre}")
+        _notificar(db, tenant_id, f"Nueva cotizacion #{cot.numero} creada por {vendedor_nombre}")
     )
     return _to_out(cot)
 
@@ -64,7 +150,6 @@ async def crear(
 async def listar(
     db: AsyncSession, tenant_id: str, role: str, user_id: int
 ) -> list[CotizacionOut]:
-    # Vendedor solo ve las suyas
     vendedor_id = user_id if role == "vendedor" else None
     cots = await repo.list_all(db, tenant_id, vendedor_id=vendedor_id)
     return [_to_out(c) for c in cots]
@@ -73,7 +158,10 @@ async def listar(
 async def obtener(db: AsyncSession, cot_id: UUID, tenant_id: str) -> CotizacionOut:
     cot = await repo.get_by_id(db, cot_id, tenant_id)
     if cot is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cotización no encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cotizacion no encontrada",
+        )
     return _to_out(cot)
 
 
@@ -82,7 +170,10 @@ async def actualizar(
 ) -> CotizacionOut:
     cot = await repo.get_by_id(db, cot_id, tenant_id)
     if cot is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cotización no encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cotizacion no encontrada",
+        )
     if cot.estado not in ("borrador", "enviada"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -102,7 +193,6 @@ async def actualizar(
     await db.flush()
     await db.refresh(cot, ["client", "vendedor"])
 
-    # Enviar email al cliente cuando la cotización se marca como enviada
     if data.estado == "enviada" and prev_estado != "enviada":
         if cot.client and cot.client.email:
             from app.tenants.repository import TenantRepository
@@ -128,7 +218,6 @@ async def actualizar(
                 )
             )
 
-    # Notificación interna al cambiar estado
     if data.estado is not None and data.estado != prev_estado:
         LABELS = {
             "enviada":    "enviada al cliente",
@@ -140,7 +229,11 @@ async def actualizar(
         if label:
             vendedor_nombre = cot.vendedor.nombre if cot.vendedor else "vendedor"
             asyncio.ensure_future(
-                _notificar(db, tenant_id, f"Cot. #{cot.numero} → {label} (por {vendedor_nombre})")
+                _notificar(
+                    db,
+                    tenant_id,
+                    f"Cot. #{cot.numero} -> {label} (por {vendedor_nombre})",
+                )
             )
 
     return _to_out(cot)
@@ -148,19 +241,33 @@ async def actualizar(
 
 async def convertir_a_orden(
     db: AsyncSession, cot_id: UUID, user_id: int, tenant_id: str, role: str
-) -> CotizacionOut:
-    """Convierte la cotización en una orden y actualiza estado a 'convertida'."""
+) -> ConvertirResponse:
+    """Convierte la cotizacion en una orden y verifica disponibilidad de stock.
+
+    La conversion nunca se bloquea por falta de inventario: el pedido puede
+    crearse para luego gestionar la compra. Los faltantes detectados se
+    devuelven en ``stock_warnings`` para que la UI los muestre al usuario.
+    """
     cot = await repo.get_by_id(db, cot_id, tenant_id)
     if cot is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cotización no encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cotizacion no encontrada",
+        )
     if cot.estado == "convertida":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ya fue convertida")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ya fue convertida",
+        )
 
-    from app.models.order import Order, OrderHistory
+    # 1. Check stock -- collect warnings, never abort the conversion
+    productos = cot.productos or []
+    stock_warnings = await _check_stock_warnings(db, productos, tenant_id)
+
+    # 2. Create the order using the standard OrderService flow
+    from app.orders.schemas import OrderCreate as OC
     from app.orders.service import OrderService
 
-    # Usar OrderService para crear la orden con el flujo estándar
-    from app.orders.schemas import OrderCreate as OC
     order_data = OC(
         cliente_id=cot.cliente_id,
         productos=cot.productos,
@@ -169,9 +276,10 @@ async def convertir_a_orden(
     svc = OrderService(db)
     orden = await svc.create_order(order_data, user_id, tenant_id)
 
-    # Enlazar cotización → orden
+    # 3. Link cotizacion to order and mark as converted
     cot.orden_id = orden.id
     cot.estado = "convertida"
     await db.flush()
     await db.refresh(cot, ["client", "vendedor"])
-    return _to_out(cot)
+
+    return ConvertirResponse(cotizacion=_to_out(cot), stock_warnings=stock_warnings)

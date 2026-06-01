@@ -2,7 +2,7 @@
 Dependencias de autenticación.
 
 Dos niveles de validación:
-  1. get_token_data()   → extrae datos del JWT sin DB hit (rápido, 99% de los casos)
+  1. get_token_data()   → extrae datos del JWT + verifica user.activo en DB
   2. get_current_user() → carga el User completo desde DB (cuando se necesita)
 
 require_roles(*roles) usa el nivel 1 para endpoints de solo autorización.
@@ -51,14 +51,46 @@ def _parse_token(credentials: HTTPAuthorizationCredentials) -> TokenData:
     )
 
 
-def get_token_data(
+async def get_token_data(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> TokenData:
     """
-    Valida el JWT y retorna sus datos SIN tocar la base de datos.
-    Usar en endpoints donde solo se necesita autorizar por rol y tenant.
+    Valida el JWT y verifica que el usuario siga activo en la base de datos.
+    Si el usuario fue desactivado, rechaza la petición con 401 aunque el token
+    no haya expirado aún.
     """
-    return _parse_token(credentials)
+    from app.database import async_session
+    from app.models.user import User
+    from sqlalchemy import select
+
+    token_data = _parse_token(credentials)
+
+    is_superadmin = (token_data.role == "superadmin" or not token_data.tenant_id)
+
+    async with async_session() as session:
+        if is_superadmin:
+            await session.execute(text("SET LOCAL row_security = off"))
+        else:
+            await session.execute(
+                text("SELECT set_config('app.tenant_id', :tid, true)"),
+                {"tid": token_data.tenant_id},
+            )
+        await session.execute(
+            text("SELECT set_config('app.lookup_email', '', true)")
+        )
+        result = await session.execute(
+            select(User.activo).where(User.id == token_data.user_id)
+        )
+        row = result.one_or_none()
+
+    if row is None or not row.activo:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario desactivado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return token_data
 
 
 async def get_current_user(
@@ -75,12 +107,17 @@ async def get_current_user(
 
     token_data = _parse_token(credentials)
 
+    is_superadmin = (token_data.role == "superadmin" or not token_data.tenant_id)
+
     async with async_session() as session:
-        # SET LOCAL: aplica solo en esta transacción (seguro con PgBouncer)
-        await session.execute(
-            text("SELECT set_config('app.tenant_id', :tid, true)"),
-            {"tid": token_data.tenant_id},
-        )
+        if is_superadmin:
+            # Superadmin tiene tenant_id NULL — RLS lo bloquearía
+            await session.execute(text("SET LOCAL row_security = off"))
+        else:
+            await session.execute(
+                text("SELECT set_config('app.tenant_id', :tid, true)"),
+                {"tid": token_data.tenant_id},
+            )
         await session.execute(
             text("SELECT set_config('app.lookup_email', '', true)")
         )
@@ -99,10 +136,10 @@ async def get_current_user(
 
 def require_roles(*roles: str) -> Callable:
     """
-    Autorización por rol usando solo el JWT (sin DB hit).
+    Autorización por rol usando JWT + verificación de activo en DB.
     Retorna TokenData para uso en el handler.
     """
-    def checker(
+    async def checker(
         token_data: TokenData = Depends(get_token_data),
     ) -> TokenData:
         if token_data.role not in roles:

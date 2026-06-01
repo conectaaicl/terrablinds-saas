@@ -132,6 +132,10 @@ export const api = {
     fetchWithAuth(`/api/v1/users/${id}/toggle`, { method: 'PATCH' }),
   getUsersByRole: (role: string) =>
     fetchWithAuth(`/api/v1/users/by-role/${role}`),
+  updateUser: (id: number, data: { nombre?: string; email?: string; rol?: string }) =>
+    fetchWithAuth(`/api/v1/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  resendCredentials: (id: number) =>
+    fetchWithAuth(`/api/v1/users/${id}/reset-password`, { method: 'POST' }),
   resetUserPassword: (id: number) =>
     fetchWithAuth(`/api/v1/users/${id}/reset-password`, { method: 'POST' }),
 
@@ -432,5 +436,40 @@ export const api = {
     team_id?: string; notificacion_cliente?: boolean;
   }) => fetchWithAuth('/api/v1/coordinator/appointments', { method: 'POST', body: JSON.stringify(data) }),
   getAppointments: () => fetchWithAuth('/api/v1/coordinator/agenda'),
+
+
+  // ── Comisiones y Liquidaciones ────────────────────────────
+  getReglasComision: () => fetchWithAuth('/api/v1/comisiones/reglas'),
+  createReglaComision: (data: { categoria: string; rol: string; monto_por_unidad: number; descripcion?: string }) =>
+    fetchWithAuth('/api/v1/comisiones/reglas', { method: 'POST', body: JSON.stringify(data) }),
+  updateReglaComision: (id: number, data: { monto_por_unidad?: number; descripcion?: string; activo?: boolean }) =>
+    fetchWithAuth('/api/v1/comisiones/reglas/' + id, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteReglaComision: (id: number) =>
+    fetchWithAuth('/api/v1/comisiones/reglas/' + id, { method: 'DELETE' }),
+  getMisComisiones: (periodo?: string) => {
+    const qs = periodo ? '?periodo=' + periodo : '';
+    return fetchWithAuth('/api/v1/comisiones/mis-comisiones' + qs);
+  },
+  getComisionesUsuario: (userId: number, periodo?: string) => {
+    const qs = periodo ? '?periodo=' + periodo : '';
+    return fetchWithAuth('/api/v1/comisiones/usuario/' + userId + qs);
+  },
+  getResumenComisiones: (periodo?: string) => {
+    const qs = periodo ? '?periodo=' + periodo : '';
+    return fetchWithAuth('/api/v1/comisiones/resumen' + qs);
+  },
+  getLiquidaciones: (periodo?: string) => {
+    const qs = periodo ? '?periodo=' + periodo : '';
+    return fetchWithAuth('/api/v1/liquidaciones/' + qs);
+  },
+  generarLiquidacion: (data: { user_id: number; periodo: string; sueldo_base: number }) =>
+    fetchWithAuth('/api/v1/liquidaciones/generar', { method: 'POST', body: JSON.stringify(data) }),
+  getLiquidacion: (id: number) => fetchWithAuth('/api/v1/liquidaciones/' + id),
+  aprobarLiquidacion: (id: number) =>
+    fetchWithAuth('/api/v1/liquidaciones/' + id + '/aprobar', { method: 'PATCH' }),
+  pagarLiquidacion: (id: number) =>
+    fetchWithAuth('/api/v1/liquidaciones/' + id + '/pagar', { method: 'PATCH' }),
+  ajustarLiquidacion: (id: number, data: { ajustes: number; notas_ajustes?: string }) =>
+    fetchWithAuth('/api/v1/liquidaciones/' + id + '/ajuste', { method: 'PATCH', body: JSON.stringify(data) }),
 
 };

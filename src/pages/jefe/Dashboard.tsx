@@ -17,36 +17,36 @@ const ETAPAS = [
   {
     label: 'Ventas',
     gradient: 'from-sky-400 to-sky-600',
-    badgeBg: 'bg-sky-100',
-    badgeText: 'text-sky-700',
+    badgeBg: 'bg-sky-500/10',
+    badgeText: 'text-sky-400',
     estados: ['cotizacion', 'cotizacion_enviada', 'aceptada', 'cotizado'],
   },
   {
     label: 'Revisión OT',
     gradient: 'from-cyan-400 to-cyan-600',
-    badgeBg: 'bg-cyan-100',
-    badgeText: 'text-cyan-700',
+    badgeBg: 'bg-cyan-500/10',
+    badgeText: 'text-cyan-400',
     estados: ['ot_creada', 'aprobada'],
   },
   {
     label: 'Fabricación',
     gradient: 'from-amber-400 to-amber-600',
-    badgeBg: 'bg-amber-100',
-    badgeText: 'text-amber-700',
+    badgeBg: 'bg-amber-500/10',
+    badgeText: 'text-amber-400',
     estados: ['en_fabricacion', 'listo_para_instalar', 'fabricado'],
   },
   {
     label: 'Instalación',
     gradient: 'from-violet-400 to-violet-600',
-    badgeBg: 'bg-violet-100',
-    badgeText: 'text-violet-700',
+    badgeBg: 'bg-violet-500/10',
+    badgeText: 'text-violet-400',
     estados: ['instalacion_programada', 'en_camino', 'instalando', 'instalacion_completada', 'agendado', 'en_ruta', 'en_instalacion', 'pendiente_firma'],
   },
   {
     label: 'Cerradas',
     gradient: 'from-emerald-400 to-emerald-600',
-    badgeBg: 'bg-emerald-100',
-    badgeText: 'text-emerald-700',
+    badgeBg: 'bg-emerald-500/10',
+    badgeText: 'text-emerald-400',
     estados: ['cerrada', 'cerrado'],
   },
 ];
@@ -104,14 +104,14 @@ export default function JefeDashboard() {
       {/* Page header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Dashboard</h1>
+          <h1 className="text-2xl font-black text-slate-100 tracking-tight">Dashboard</h1>
           <p className="mt-0.5 text-sm text-slate-400">
-            Vista general · <span className="font-medium text-slate-600">{tenant?.nombre}</span>
+            Vista general · <span className="font-medium text-slate-300">{tenant?.nombre}</span>
           </p>
         </div>
         <button
           onClick={() => { refetchSum(); refetchOrd(); }}
-          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 hover:border-slate-300"
+          className="flex items-center gap-1.5 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.15)]"
         >
           <RefreshCw size={13} />
           Actualizar
@@ -175,9 +175,9 @@ export default function JefeDashboard() {
             </div>
             <p className="text-3xl font-black text-white leading-none">{fmt(ingresosMes)}</p>
             <div className="mt-2 flex items-center gap-1">
-              <div className="flex items-center gap-0.5 rounded-full bg-green-100 px-1.5 py-0.5">
-                <TrendingUp size={10} className="text-green-700" />
-                <span className="text-[10px] font-bold text-green-700">{ordenesMes}</span>
+              <div className="flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-0.5">
+                <TrendingUp size={10} className="text-white" />
+                <span className="text-[10px] font-bold text-white">{ordenesMes}</span>
               </div>
               <span className="text-[11px] text-emerald-100">órdenes este mes</span>
             </div>
@@ -197,9 +197,9 @@ export default function JefeDashboard() {
             </div>
             <p className="text-3xl font-black text-white leading-none">{totalActivas}</p>
             <div className="mt-2 flex items-center gap-1">
-              <div className="flex items-center gap-0.5 rounded-full bg-blue-100 px-1.5 py-0.5">
-                <Activity size={10} className="text-blue-700" />
-                <span className="text-[10px] font-bold text-blue-700">{enCampo.length}</span>
+              <div className="flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-0.5">
+                <Activity size={10} className="text-white" />
+                <span className="text-[10px] font-bold text-white">{enCampo.length}</span>
               </div>
               <span className="text-[11px] text-blue-100">técnicos en campo</span>
             </div>
@@ -219,9 +219,9 @@ export default function JefeDashboard() {
             </div>
             <p className="text-3xl font-black text-white leading-none">{cerradasMes}</p>
             <div className="mt-2 flex items-center gap-1">
-              <div className="flex items-center gap-0.5 rounded-full bg-violet-100 px-1.5 py-0.5">
-                <Target size={10} className="text-violet-700" />
-                <span className="text-[10px] font-bold text-violet-700">{tasaCierre}%</span>
+              <div className="flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-0.5">
+                <Target size={10} className="text-white" />
+                <span className="text-[10px] font-bold text-white">{tasaCierre}%</span>
               </div>
               <span className="text-[11px] text-violet-100">tasa de cierre</span>
             </div>
@@ -241,9 +241,9 @@ export default function JefeDashboard() {
             </div>
             <p className="text-3xl font-black text-white leading-none">{enCampo.length}</p>
             <div className="mt-2 flex items-center gap-1">
-              <div className="flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5">
-                <Users size={10} className="text-amber-700" />
-                <span className="text-[10px] font-bold text-amber-700">Live</span>
+              <div className="flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-0.5">
+                <Users size={10} className="text-white" />
+                <span className="text-[10px] font-bold text-white">Live</span>
               </div>
               <span className="text-[11px] text-amber-100">técnicos activos</span>
             </div>
@@ -252,13 +252,13 @@ export default function JefeDashboard() {
       </div>
 
       {/* Pipeline visual — horizontal bars */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] p-6 shadow-[0_32px_80px_rgba(0,0,0,0.5)] backdrop-blur-xl">
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100">
-              <BarChart3 size={14} className="text-slate-600" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(255,255,255,0.06)]">
+              <BarChart3 size={14} className="text-slate-400" />
             </div>
-            <h2 className="text-base font-bold text-slate-900">Pipeline de Producción</h2>
+            <h2 className="text-base font-bold text-slate-100">Pipeline de Producción</h2>
           </div>
           <span className="text-xs font-semibold text-slate-400">{totalPipeline} órdenes total</span>
         </div>
@@ -267,15 +267,15 @@ export default function JefeDashboard() {
             const pct = totalPipeline > 0 ? Math.round((et.count / totalPipeline) * 100) : 0;
             return (
               <div key={et.label} className="flex items-center gap-3">
-                <span className="min-w-[110px] text-[12px] font-semibold text-slate-600 truncate">{et.label}</span>
-                <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                <span className="min-w-[110px] text-[12px] font-semibold text-slate-400 truncate">{et.label}</span>
+                <div className="flex-1 h-2 rounded-full bg-[rgba(255,255,255,0.06)] overflow-hidden">
                   <div
                     className={`h-full rounded-full bg-gradient-to-r ${et.gradient} transition-all duration-500`}
                     style={{ width: `${Math.max(pct, et.count > 0 ? 3 : 0)}%` }}
                   />
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="w-7 text-right text-sm font-black text-slate-800">{et.count}</span>
+                  <span className="w-7 text-right text-sm font-black text-slate-100">{et.count}</span>
                   <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${et.badgeBg} ${et.badgeText} leading-none`}>
                     {pct}%
                   </span>
@@ -291,12 +291,12 @@ export default function JefeDashboard() {
         {/* Left column */}
         <div className="lg:col-span-2 space-y-5">
           {/* Acción requerida */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] p-5 shadow-[0_32px_80px_rgba(0,0,0,0.5)] backdrop-blur-xl">
             <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50">
-                <AlertTriangle size={14} className="text-rose-500" />
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/10">
+                <AlertTriangle size={14} className="text-rose-400" />
               </div>
-              <h2 className="text-base font-bold text-slate-900">Acción Requerida</h2>
+              <h2 className="text-base font-bold text-slate-100">Acción Requerida</h2>
             </div>
 
             {hasActionAlerts ? (
@@ -304,69 +304,69 @@ export default function JefeDashboard() {
                 {sinFabricante.length > 0 && (
                   <Link
                     to={`${rolBase}/ordenes`}
-                    className="flex items-center gap-3 rounded-xl bg-amber-50 px-3 py-2.5 transition hover:bg-amber-100 group"
+                    className="flex items-center gap-3 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5 transition hover:bg-amber-500/20 group"
                   >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 group-hover:bg-amber-200 transition-colors">
-                      <Factory size={13} className="text-amber-600" />
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 transition-colors">
+                      <Factory size={13} className="text-amber-400" />
                     </div>
-                    <span className="flex-1 text-[13px] font-semibold text-amber-800">
+                    <span className="flex-1 text-[13px] font-semibold text-amber-300">
                       {sinFabricante.length} sin fabricante asignado
                     </span>
-                    <ArrowRight size={13} className="text-amber-400 shrink-0" />
+                    <ArrowRight size={13} className="text-amber-500 shrink-0" />
                   </Link>
                 )}
                 {sinInstalador.length > 0 && (
                   <Link
                     to={`${rolBase}/ordenes`}
-                    className="flex items-center gap-3 rounded-xl bg-violet-50 px-3 py-2.5 transition hover:bg-violet-100 group"
+                    className="flex items-center gap-3 rounded-xl bg-violet-500/10 border border-violet-500/20 px-3 py-2.5 transition hover:bg-violet-500/20 group"
                   >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-100 group-hover:bg-violet-200 transition-colors">
-                      <Wrench size={13} className="text-violet-600" />
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-500/20 transition-colors">
+                      <Wrench size={13} className="text-violet-400" />
                     </div>
-                    <span className="flex-1 text-[13px] font-semibold text-violet-800">
+                    <span className="flex-1 text-[13px] font-semibold text-violet-300">
                       {sinInstalador.length} sin instalador asignado
                     </span>
-                    <ArrowRight size={13} className="text-violet-400 shrink-0" />
+                    <ArrowRight size={13} className="text-violet-500 shrink-0" />
                   </Link>
                 )}
                 {conProblema.length > 0 && (
                   <Link
                     to={`${rolBase}/ordenes`}
-                    className="flex items-center gap-3 rounded-xl bg-red-50 px-3 py-2.5 transition hover:bg-red-100 group"
+                    className="flex items-center gap-3 rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2.5 transition hover:bg-red-500/20 group"
                   >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-100 group-hover:bg-red-200 transition-colors">
-                      <AlertTriangle size={13} className="text-red-600" />
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-500/20 transition-colors">
+                      <AlertTriangle size={13} className="text-red-400" />
                     </div>
-                    <span className="flex-1 text-[13px] font-semibold text-red-800">
+                    <span className="flex-1 text-[13px] font-semibold text-red-300">
                       {conProblema.length} orden{conProblema.length > 1 ? 'es' : ''} con problema
                     </span>
-                    <ArrowRight size={13} className="text-red-400 shrink-0" />
+                    <ArrowRight size={13} className="text-red-500 shrink-0" />
                   </Link>
                 )}
                 {averiaStats && averiaStats.abiertas > 0 && (
                   <Link
                     to={`${rolBase}/averias`}
-                    className="flex items-center gap-3 rounded-xl bg-orange-50 px-3 py-2.5 transition hover:bg-orange-100 group"
+                    className="flex items-center gap-3 rounded-xl bg-orange-500/10 border border-orange-500/20 px-3 py-2.5 transition hover:bg-orange-500/20 group"
                   >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-100 group-hover:bg-orange-200 transition-colors">
-                      <Wrench size={13} className="text-orange-600" />
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-500/20 transition-colors">
+                      <Wrench size={13} className="text-orange-400" />
                     </div>
-                    <span className="flex-1 text-[13px] font-semibold text-orange-800">
+                    <span className="flex-1 text-[13px] font-semibold text-orange-300">
                       {averiaStats.abiertas} avería{averiaStats.abiertas > 1 ? 's' : ''} abierta{averiaStats.abiertas > 1 ? 's' : ''}
                       {averiaStats.criticas > 0 && ` (${averiaStats.criticas} crítica${averiaStats.criticas > 1 ? 's' : ''})`}
                     </span>
-                    <ArrowRight size={13} className="text-orange-400 shrink-0" />
+                    <ArrowRight size={13} className="text-orange-500 shrink-0" />
                   </Link>
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
-                  <CheckCircle2 size={14} className="text-emerald-600" />
+              <div className="flex items-center gap-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-3">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20">
+                  <CheckCircle2 size={14} className="text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-[13px] font-bold text-emerald-800">Todo al día</p>
-                  <p className="text-[11px] text-emerald-600">Sin acciones pendientes ahora</p>
+                  <p className="text-[13px] font-bold text-emerald-300">Todo al día</p>
+                  <p className="text-[11px] text-emerald-500">Sin acciones pendientes ahora</p>
                 </div>
               </div>
             )}
@@ -374,12 +374,12 @@ export default function JefeDashboard() {
 
           {/* Tiempos promedio */}
           {summary?.metricas && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] p-5 shadow-[0_32px_80px_rgba(0,0,0,0.5)] backdrop-blur-xl">
               <div className="mb-4 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
-                  <Clock size={14} className="text-blue-500" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10">
+                  <Clock size={14} className="text-blue-400" />
                 </div>
-                <h2 className="text-base font-bold text-slate-900">Tiempos Promedio</h2>
+                <h2 className="text-base font-bold text-slate-100">Tiempos Promedio</h2>
               </div>
               <div className="space-y-2">
                 {[
@@ -390,9 +390,9 @@ export default function JefeDashboard() {
                 ]
                   .filter(x => x.h)
                   .map(x => (
-                    <div key={x.label} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
-                      <span className="text-[13px] text-slate-500">{x.label}</span>
-                      <span className="text-[13px] font-bold text-slate-800 tabular-nums">
+                    <div key={x.label} className="flex items-center justify-between py-1.5 border-b border-[rgba(255,255,255,0.05)] last:border-0">
+                      <span className="text-[13px] text-slate-400">{x.label}</span>
+                      <span className="text-[13px] font-bold text-slate-100 tabular-nums">
                         {x.h! < 24 ? `${x.h!.toFixed(1)}h` : `${(x.h! / 24).toFixed(1)} días`}
                       </span>
                     </div>
@@ -404,13 +404,13 @@ export default function JefeDashboard() {
 
         {/* Right column — Actividad reciente */}
         <div className="lg:col-span-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm h-full">
+          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] p-5 shadow-[0_32px_80px_rgba(0,0,0,0.5)] backdrop-blur-xl h-full">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100">
-                  <Activity size={14} className="text-slate-600" />
+                  <Activity size={14} className="text-slate-400" />
                 </div>
-                <h2 className="text-base font-bold text-slate-900">Actividad Reciente</h2>
+                <h2 className="text-base font-bold text-slate-100">Actividad Reciente</h2>
               </div>
               <Link
                 to={`${rolBase}/ordenes`}
@@ -421,35 +421,35 @@ export default function JefeDashboard() {
               </Link>
             </div>
 
-            <div className="divide-y divide-slate-50">
+            <div className="divide-y divide-[rgba(255,255,255,0.05)]">
               {recientes.map(o => {
                 const cfg = ESTADO_CONFIG[o.estado] || ESTADO_CONFIG.cotizacion;
                 return (
                   <Link
                     key={o.id}
                     to={`${rolBase}/ordenes/${o.id}`}
-                    className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-slate-50 group"
+                    className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-[rgba(255,255,255,0.03)] group"
                   >
                     {/* Status dot */}
                     <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${cfg.dot}`} />
                     {/* Info */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-2">
-                        <p className="text-[13px] font-bold text-slate-800 group-hover:text-slate-900">
+                        <p className="text-[13px] font-bold text-slate-200 group-hover:text-slate-100">
                           OT #{o.numero}
                         </p>
-                        <p className="truncate text-[11px] text-slate-400">
+                        <p className="truncate text-[11px] text-slate-500">
                           {o.cliente_nombre || '—'}
                         </p>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{fmtDate(o.created_at)}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{fmtDate(o.created_at)}</p>
                     </div>
                     {/* Right side */}
                     <div className="ml-2 flex shrink-0 flex-col items-end gap-1">
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold leading-none ${cfg.bg} ${cfg.color}`}>
                         {cfg.label}
                       </span>
-                      <span className="text-[11px] font-bold text-slate-700 tabular-nums">
+                      <span className="text-[11px] font-bold text-slate-300 tabular-nums">
                         {fmt(o.precio_total)}
                       </span>
                     </div>
@@ -458,10 +458,10 @@ export default function JefeDashboard() {
               })}
 
               {recientes.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 text-slate-300">
+                <div className="flex flex-col items-center justify-center py-12 text-slate-600">
                   <Package size={32} strokeWidth={1.5} />
-                  <p className="mt-3 text-sm font-medium text-slate-400">Sin órdenes aún</p>
-                  <p className="text-xs text-slate-300 mt-0.5">Las órdenes aparecerán aquí</p>
+                  <p className="mt-3 text-sm font-medium text-slate-500">Sin órdenes aún</p>
+                  <p className="text-xs text-slate-600 mt-0.5">Las órdenes aparecerán aquí</p>
                 </div>
               )}
             </div>

@@ -749,7 +749,15 @@ export function DetalleCotizacion() {
       res = await patch({ estado: 'rechazada' });
     } else if (accion === 'convertir') {
       res = await convertir();
-      if (res) { nav(-1); return; }
+      if (res) {
+        // API now returns { cotizacion, stock_warnings }
+        const warnings: string[] = (res as any).stock_warnings || [];
+        if (warnings.length > 0) {
+          alert('Orden creada con advertencias de stock:\n\n' + warnings.join('\n'));
+        }
+        nav(-1);
+        return;
+      }
     }
     if (res) refetch();
   };

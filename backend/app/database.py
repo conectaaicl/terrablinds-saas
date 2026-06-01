@@ -10,6 +10,7 @@ que recibe el tenant_id del JWT y ejecuta SET LOCAL antes de cada query.
 """
 from typing import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import get_settings
@@ -38,6 +39,22 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     async with async_session() as session:
         try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+
+
+async def get_db_bypass_rls() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Sesión de DB con RLS deshabilitado.
+    USAR SOLO en endpoints de superadmin que necesitan acceder a cualquier tenant
+    sin conocer el tenant_id de antemano (ej: reset-password por id).
+    """
+    async with async_session() as session:
+        try:
+            await session.execute(text('SET LOCAL row_security = off'))
             yield session
             await session.commit()
         except Exception:

@@ -7,22 +7,30 @@ instalador activa tracking GPS.
 Para post-venta, además de disparar el webhook n8n incluye datos Resend
 y envía el email directamente si RESEND_API_KEY está configurado.
 """
+import asyncio
 import httpx
 from app.config import get_settings
 
 
 # ── HTTP helper ─────────────────────────────────────────────────────────────
 
-async def _post_webhook(url: str, payload: dict) -> bool:
-    """POST a webhook URL. Retorna True si exitoso."""
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(url, json=payload)
-            print(f"[n8n] webhook {url} → {resp.status_code}", flush=True)
-            return resp.status_code < 400
-    except Exception as e:
-        print(f"[n8n] webhook error: {e}", flush=True)
-        return False
+async def _post_webhook(url: str, payload: dict, max_retries: int = 3) -> bool:
+    """POST a webhook URL con reintentos exponenciales. Retorna True si exitoso."""
+    delay = 2
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(url, json=payload)
+                print(f"[n8n] webhook {url} → {resp.status_code} (intento {attempt+1})", flush=True)
+                if resp.status_code < 500:
+                    return resp.status_code < 400
+        except Exception as e:
+            print(f"[n8n] webhook error (intento {attempt+1}): {e}", flush=True)
+        if attempt < max_retries - 1:
+            await asyncio.sleep(delay)
+            delay *= 2
+    print(f"[n8n] webhook {url} falló tras {max_retries} intentos", flush=True)
+    return False
 
 
 # ── Resend direct email ──────────────────────────────────────────────────────
@@ -136,7 +144,7 @@ def _post_venta_html(
         <tr>
           <td style="background:#f8fafc;border-top:1px solid #f1f5f9;padding:20px 32px;text-align:center;">
             <p style="margin:0;font-size:12px;color:#94a3b8;">
-              Este mensaje fue enviado por <strong>{tenant_nombre}</strong> a través de WorkshopOS.
+              Este mensaje fue enviado por <strong>{tenant_nombre}</strong> a través de ConectaWork.
             </p>
           </td>
         </tr>
@@ -182,7 +190,7 @@ async def trigger_post_venta_creado(
     cliente: dict,
     tenant_id: str,
     ai_mensaje: str | None = None,
-    tenant_nombre: str = "WorkshopOS",
+    tenant_nombre: str = "ConectaWork",
 ) -> bool:
     """
     Dispara cuando se crea un post-venta.
@@ -251,7 +259,7 @@ async def trigger_post_venta_ai_mensaje(
     ai_mensaje: str,
     tipo: str,
     tenant_id: str,
-    tenant_nombre: str = "WorkshopOS",
+    tenant_nombre: str = "ConectaWork",
 ) -> bool:
     """
     Envía el mensaje AI generado al cliente via Resend y webhook n8n.

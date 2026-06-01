@@ -259,7 +259,7 @@ async def enviar_email_ai(
     from app.models.tenant import Tenant
     tenant_result = await db.execute(select(Tenant).where(Tenant.id == token_data.tenant_id))
     tenant = tenant_result.scalar_one_or_none()
-    tenant_nombre = tenant.nombre if tenant else "WorkshopOS"
+    tenant_nombre = tenant.nombre if tenant else "ConectaWork"
 
     cliente_dict = {
         "nombre": client.nombre,

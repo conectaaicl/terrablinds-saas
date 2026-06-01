@@ -1,5 +1,5 @@
 """
-Seeder de 500+ productos para WorkshopOS.
+Seeder de 500+ productos para ConectaWork.
 Uso: python seed_productos.py --tenant-id <tenant_id>
 
 Requiere: DATABASE_URL en .env o variable de entorno.

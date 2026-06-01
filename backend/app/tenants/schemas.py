@@ -12,6 +12,7 @@ class TenantCreate(BaseModel):
     # Cuenta inicial del jefe (opcional — si se provee, se crea el usuario y se envía email)
     jefe_nombre: Optional[str] = None
     jefe_email: Optional[str] = None
+    jefe_password: Optional[str] = None
 
 
 class TenantUpdate(BaseModel):
@@ -33,3 +34,14 @@ class TenantResponse(BaseModel):
     jefe_password: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class JefeSet(BaseModel):
+    nombre: str
+    email: str
+    password: Optional[str] = None
+
+class JefeResponse(BaseModel):
+    email: str
+    nombre: str
+    password: str

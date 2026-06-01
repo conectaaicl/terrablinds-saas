@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,6 +8,8 @@ from app.auth.token_store import RefreshTokenStore, get_redis
 from app.models.user import CREATABLE_ROLES, TENANT_ROLES, RoleEnum, User
 from app.users.repository import UserRepository
 from app.users.schemas import UserCreate
+
+logger = logging.getLogger(__name__)
 
 
 class UserService:
@@ -31,14 +35,18 @@ class UserService:
 
     async def create_user(
         self, data: UserCreate, creator_role: str, creator_tenant_id: str
-    ) -> User:
+    ) -> tuple[User, str]:
         """
         Crea un usuario con las siguientes validaciones:
           1. Superadmin no se puede crear por API
           2. El creador puede crear ese tipo de rol (CREATABLE_ROLES)
           3. El nuevo usuario pertenece al tenant del creador (si no es superadmin)
           4. El email no existe en ese tenant
+
+        Retorna (user, plain_password) — la contraseña en texto plano para enviarla por email.
         """
+        from app.tenants.service import _generate_password
+
         creator_role_enum = RoleEnum(creator_role)
         target_role = RoleEnum(data.rol)
 
@@ -77,9 +85,12 @@ class UserService:
                 detail=f"El email '{data.email}' ya existe en este taller",
             )
 
+        # Generar contraseña si no fue provista
+        plain_password = data.password if data.password else _generate_password()
+
         user = User(
             email=data.email,
-            hashed_password=hash_password(data.password),
+            hashed_password=hash_password(plain_password),
             nombre=data.nombre,
             rol=target_role,
             tenant_id=data.tenant_id,
@@ -87,33 +98,33 @@ class UserService:
         )
         created = await self.repo.create(user)
 
-        # Enviar email de bienvenida (fire-and-forget)
-        import asyncio
+        # Obtener nombre del taller para el email
+        taller_nombre = data.tenant_id or "tu taller"
+        if data.tenant_id:
+            try:
+                from app.tenants.repository import TenantRepository
+                t_repo = TenantRepository(self.repo.db)
+                tenant = await t_repo.get_by_id(data.tenant_id)
+                if tenant:
+                    taller_nombre = tenant.nombre
+            except Exception as e:
+                logger.warning(f"No se pudo obtener nombre del taller: {e}")
+
+        # Enviar email de bienvenida con credenciales
         try:
             from app.email import send_user_welcome
-            from app.tenants.repository import TenantRepository
-            taller_nombre = data.tenant_id or "tu taller"
-            if data.tenant_id:
-                try:
-                    t_repo = TenantRepository(self.repo.db)
-                    tenant = await t_repo.get_by_id(data.tenant_id)
-                    if tenant:
-                        taller_nombre = tenant.nombre
-                except Exception:
-                    pass
-            asyncio.ensure_future(
-                send_user_welcome(
-                    to_email=data.email,
-                    nombre=data.nombre,
-                    rol=target_role.value,
-                    taller_nombre=taller_nombre,
-                    password=data.password,
-                )
+            await send_user_welcome(
+                to_email=data.email,
+                nombre=data.nombre,
+                rol=target_role.value,
+                taller_nombre=taller_nombre,
+                password=plain_password,
             )
-        except Exception:
-            pass
+            logger.info(f"Email de bienvenida enviado a {data.email} (rol={target_role.value})")
+        except Exception as e:
+            logger.error(f"Error enviando email de bienvenida a {data.email}: {e}")
 
-        return created
+        return created, plain_password
 
     async def toggle_active(
         self, user_id: int, tenant_id: str, requester_id: int

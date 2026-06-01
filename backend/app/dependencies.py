@@ -92,19 +92,3 @@ def get_tenant_id_from_token(token_data: TokenData = Depends(get_token_data)) ->
     """
     return token_data.tenant_id
 
-
-def get_tenant_scope(user) -> str:
-    """Retorna el tenant_id del usuario, o '__all__' para superadmin."""
-    if getattr(user, 'rol', None) and str(user.rol).endswith('superadmin'):
-        return '__all__'
-    return user.tenant_id or ''
-
-
-def require_superadmin(token_data: TokenData = Depends(get_token_data)) -> TokenData:
-    """Verifica que el usuario sea superadmin."""
-    if token_data.role != RoleEnum.superadmin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo superadmin puede realizar esta operación",
-        )
-    return token_data

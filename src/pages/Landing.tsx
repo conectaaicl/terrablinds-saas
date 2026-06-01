@@ -77,7 +77,7 @@ const TESTIMONIALS = [
   {
     name: 'TerraBlinds',
     role: 'Cortinas y Persianas a Medida',
-    text: 'Usamos WorkShopOS internamente para gestionar más de 200 órdenes al mes. Nos ayudó a reducir errores y mejorar los tiempos de entrega un 40%.',
+    text: 'Usamos ConectaWork internamente para gestionar más de 200 órdenes al mes. Nos ayudó a reducir errores y mejorar los tiempos de entrega un 40%.',
     emoji: '🪟',
   },
 ];
@@ -90,7 +90,7 @@ export default function Landing() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 text-lg">⚡</div>
-            <span className="text-lg font-black text-slate-900 tracking-tight">WorkShopOS</span>
+            <span className="text-lg font-black text-slate-900 tracking-tight">ConectaWork</span>
           </div>
           <div className="hidden items-center gap-6 text-sm font-medium text-slate-600 sm:flex">
             <a href="#features" className="hover:text-slate-900 transition-colors">Funciones</a>
@@ -123,7 +123,7 @@ export default function Landing() {
             </span>
           </h1>
           <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-400">
-            WorkShopOS es el SaaS multi-tenant para talleres de fabricación e instalación.
+            ConectaWork es el SaaS multi-tenant para talleres de fabricación e instalación.
             Gestiona cotizaciones, producción, GPS de instaladores y más — desde un solo lugar.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
@@ -291,7 +291,7 @@ export default function Landing() {
                 un software que se adaptara a nuestros procesos reales, lo construimos nosotros mismos.
               </p>
               <p className="text-slate-500 leading-relaxed mb-6">
-                WorkShopOS nació para resolver los problemas que vivimos cada día: cotizaciones perdidas,
+                ConectaWork nació para resolver los problemas que vivimos cada día: cotizaciones perdidas,
                 fabricantes sin información, instaladores sin coordinación. Hoy lo ofrecemos a otros talleres.
               </p>
               <div className="flex items-center gap-3">
@@ -337,7 +337,7 @@ export default function Landing() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-rose-400 to-rose-600 text-sm">⚡</div>
-            <span className="font-bold text-slate-800">WorkShopOS</span>
+            <span className="font-bold text-slate-800">ConectaWork</span>
           </div>
           <p className="text-sm text-slate-400">
             Desarrollado por <strong className="text-slate-600">TerraBlinds</strong> ·{' '}

@@ -2,34 +2,39 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: workshopos
-      POSTGRES_PASSWORD: workshopos
-      POSTGRES_DB: workshopos
+      POSTGRES_USER: conectawork_app
+      POSTGRES_PASSWORD: conectawork_app
+      POSTGRES_DB: conectawork
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U workshopos"]
+      test: ["CMD-SHELL", "pg_isready -U conectawork_app -d postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     command: redis-server --loglevel warning
+    restart: unless-stopped
 
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_started
     environment:
-      DATABASE_URL: postgresql+asyncpg://workshopos:workshopos@db:5432/workshopos
+      DATABASE_URL: postgresql+asyncpg://conectawork_app:conectawork_app@db:5432/conectawork
       SECRET_KEY: dev-secret-only-change-in-production
       REDIS_URL: redis://redis:6379/0
+      MAILSAAS_API_KEY: sk_live_6pplo4eac1j6m26z2j9np
+      FROM_EMAIL: noreply@working.conectaai.cl
+      FROM_NAME: WorkShopOS
       CORS_ORIGINS: http://localhost:5173,http://localhost:3000
       ENVIRONMENT: development
     restart: unless-stopped

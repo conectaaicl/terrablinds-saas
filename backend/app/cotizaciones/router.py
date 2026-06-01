@@ -1,11 +1,17 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import TokenData, require_roles
+from app.auth.router import limiter
 from app.cotizaciones import service
-from app.cotizaciones.schemas import CotizacionCreate, CotizacionOut, CotizacionPatch
+from app.cotizaciones.schemas import (
+    ConvertirResponse,
+    CotizacionCreate,
+    CotizacionOut,
+    CotizacionPatch,
+)
 from app.dependencies import get_db_for_tenant
 
 router = APIRouter(prefix="/cotizaciones", tags=["cotizaciones"])
@@ -15,14 +21,19 @@ ROLES_COTIZACION = ("jefe", "gerente", "coordinador", "vendedor")
 
 @router.get("/", response_model=list[CotizacionOut])
 async def listar_cotizaciones(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     token_data: TokenData = Depends(require_roles(*ROLES_COTIZACION)),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
-    return await service.listar(db, token_data.tenant_id, token_data.role, token_data.user_id)
+    all_cots = await service.listar(db, token_data.tenant_id, token_data.role, token_data.user_id)
+    return all_cots[skip: skip + limit]
 
 
 @router.post("/", response_model=CotizacionOut, status_code=201)
+@limiter.limit("20/minute")
 async def crear_cotizacion(
+    request: Request,
     data: CotizacionCreate,
     token_data: TokenData = Depends(require_roles(*ROLES_COTIZACION)),
     db: AsyncSession = Depends(get_db_for_tenant),
@@ -49,12 +60,19 @@ async def actualizar_cotizacion(
     return await service.actualizar(db, cot_id, data, token_data.tenant_id)
 
 
-@router.post("/{cot_id}/convertir", response_model=CotizacionOut)
+@router.post("/{cot_id}/convertir", response_model=ConvertirResponse)
 async def convertir_cotizacion(
     cot_id: UUID,
     token_data: TokenData = Depends(require_roles(*ROLES_COTIZACION)),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
+    """Convert a cotizacion to an order.
+
+    The conversion always proceeds. If any product in the quote lacks sufficient
+    inventory based on configured ReglaMaterial rules, the shortfall is reported
+    in ``stock_warnings`` (list of strings) so the UI can alert the user.
+    The created order is nested inside ``cotizacion.orden_id``.
+    """
     return await service.convertir_a_orden(
         db, cot_id, token_data.user_id, token_data.tenant_id, token_data.role
     )

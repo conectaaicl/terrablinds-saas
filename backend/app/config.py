@@ -4,7 +4,7 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # Base de datos (obligatorio en producción, default solo para dev local)
-    DATABASE_URL: str = "postgresql+asyncpg://workshopos:workshopos@localhost:5432/workshopos"
+    DATABASE_URL: str = "postgresql+asyncpg://conectawork_app:conectawork_app@localhost:5432/conectawork"
 
     # JWT — en producción DEBE venir del .env, sin default seguro aquí
     SECRET_KEY: str = "dev-only-change-in-production-openssl-rand-hex-32"
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     MAILSAAS_API_KEY: str = ""
     MAILSAAS_URL: str = "https://mail.conectaai.cl"
     FROM_EMAIL: str = "noreply@works.conectaai.cl"
-    FROM_NAME: str = "WorkshopOS"
+    FROM_NAME: str = "ConectaWork"
 
     # Groq AI — para post-venta, sugerencias, análisis
     GROQ_API_KEY: str = ""

@@ -15,11 +15,11 @@ async def main():
 
     if not dsn:
         # Fallback: build from individual env vars
-        user = os.environ.get("POSTGRES_USER", "workshopos_app")
+        user = os.environ.get("POSTGRES_USER", "conectawork_app")
         password = os.environ.get("POSTGRES_PASSWORD", "")
         host = os.environ.get("POSTGRES_HOST", "db")
         port = os.environ.get("POSTGRES_PORT", "5432")
-        dbname = os.environ.get("POSTGRES_DB", "workshopos")
+        dbname = os.environ.get("POSTGRES_DB", "conectawork")
         dsn = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
 
     print(f"Connecting to: {dsn[:40]}...")
@@ -32,7 +32,7 @@ async def main():
     emails = [
         "supersoftware.fp@gmail.com",
         "jefe@terrablinds.cl",
-        "admin@workshopos.cl",
+        "admin@conectawork.cl",
     ]
 
     for email in emails:
@@ -49,7 +49,7 @@ async def main():
             print(f"  {email}: NOT FOUND — trying to insert...")
             # Determine tenant and role
             if email == "supersoftware.fp@gmail.com":
-                tenant_id = "workshopos"
+                tenant_id = "conectawork"
                 rol = "superadmin"
                 nombre = "Super Admin"
             elif email == "jefe@terrablinds.cl":
@@ -57,7 +57,7 @@ async def main():
                 rol = "jefe"
                 nombre = "Jefe TerraBlinds"
             else:
-                tenant_id = "workshopos"
+                tenant_id = "conectawork"
                 rol = "superadmin"
                 nombre = "Admin WorkshopOS"
 

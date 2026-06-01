@@ -1,4 +1,4 @@
-'use client'
+
 import { useState } from 'react'
 import {
   CalendarDays, Plus, X, CheckCircle2, XCircle, Clock,

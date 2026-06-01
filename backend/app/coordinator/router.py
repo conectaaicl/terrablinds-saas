@@ -43,6 +43,10 @@ async def crear_appointment(
     Crea una cita de instalación para una orden.
     Automáticamente cambia el estado de la orden a 'instalacion_programada'.
     """
+    # Validar que la fecha no sea en el pasado
+    if data.fecha_inicio < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="No se puede programar en una fecha pasada")
+
     # Verificar que la orden existe
     result = await db.execute(
         text("SELECT id, estado FROM orders WHERE id = :id AND tenant_id = :tid"),

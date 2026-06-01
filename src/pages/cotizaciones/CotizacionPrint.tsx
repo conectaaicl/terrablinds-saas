@@ -30,7 +30,7 @@ export default function CotizacionPrint() {
 
   const logoUrl: string | undefined = (tenant?.branding as any)?.logo_url;
   const brandColor: string = (tenant?.branding as any)?.color_primario || (tenant?.branding as any)?.primaryColor || '#1d4ed8';
-  const tenantNombre: string = tenant?.nombre || 'WorkshopOS';
+  const tenantNombre: string = tenant?.nombre || 'ConectaWork';
 
   // Dispara print al cargar los datos
   useEffect(() => {
@@ -242,7 +242,7 @@ export default function CotizacionPrint() {
             Precios en CLP incluyen IVA.
           </p>
           <p style={{ margin: '6px 0 0', fontSize: 11, color: '#cbd5e1' }}>
-            {tenantNombre} · Documento generado con WorkshopOS
+            {tenantNombre} · Documento generado con ConectaWork
           </p>
         </div>
       </div>

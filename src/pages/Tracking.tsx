@@ -66,7 +66,7 @@ export default function Tracking() {
         <div className="text-center space-y-1">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 to-rose-600 text-2xl">&#9889;</div>
           <h1 className="text-lg font-bold text-white">Seguimiento de técnico</h1>
-          <p className="text-xs text-slate-400">WorkShopOS — Tu instalación en tiempo real</p>
+          <p className="text-xs text-slate-400">ConectaWork — Tu instalación en tiempo real</p>
         </div>
 
         {loading && (
@@ -160,7 +160,7 @@ export default function Tracking() {
         )}
 
         <p className="text-center text-[10px] text-slate-600">
-          Esta página se actualiza cada 30 segundos &middot; WorkShopOS
+          Esta página se actualiza cada 30 segundos &middot; ConectaWork
         </p>
       </div>
     </div>

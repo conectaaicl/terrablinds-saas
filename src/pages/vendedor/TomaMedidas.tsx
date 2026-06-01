@@ -271,7 +271,7 @@ export default function TomaMedidas() {
               </button>
             )}
             {savedOtId && (
-              <button onClick={() => nav(`/jefe/${savedOtId}`)}
+              <button onClick={() => nav(`/jefe/ordenes/${savedOtId}`)}
                 className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
                 <Zap size={15} /> Ver Orden de Trabajo
               </button>

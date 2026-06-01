@@ -28,7 +28,7 @@ def create_app() -> FastAPI:
     # En producción: deshabilitar /docs y /redoc (exponen la API públicamente)
     is_prod = settings.ENVIRONMENT == "production"
     app = FastAPI(
-        title="WorkShopOS API",
+        title="ConectaWork API",
         version="1.0.0",
         lifespan=lifespan,
         docs_url=None if is_prod else "/docs",
@@ -73,6 +73,12 @@ def create_app() -> FastAPI:
     from app.inventario.router import router as inventario_router
     from app.averias.router import router as averias_router
     from app.leave.router import router as leave_router
+    from app.herramientas.router import router as herramientas_router
+    from app.proveedores.router import router as proveedores_router
+    from app.caja_chica.router import router as caja_chica_router
+    from app.programacion.router import router as programacion_router
+    from app.pagos.router import router as pagos_router
+    from app.comisiones.router import router as comisiones_router
 
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(users_router, prefix="/api/v1")
@@ -95,6 +101,12 @@ def create_app() -> FastAPI:
     app.include_router(inventario_router, prefix="/api/v1")
     app.include_router(averias_router, prefix="/api/v1")
     app.include_router(leave_router, prefix="/api/v1")
+    app.include_router(herramientas_router, prefix="/api/v1")
+    app.include_router(proveedores_router, prefix="/api/v1")
+    app.include_router(caja_chica_router, prefix="/api/v1")
+    app.include_router(programacion_router, prefix="/api/v1")
+    app.include_router(pagos_router, prefix="/api/v1")
+    app.include_router(comisiones_router, prefix="/api/v1")
 
     # Servir uploads de fotos
     uploads_dir = Path(settings.UPLOAD_DIR)

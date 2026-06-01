@@ -893,36 +893,40 @@ function NuevaTareaForm({ users, fecha, onCreated, onCancel }: {
     setSubmitting(true);
     setProgress(0);
 
-    for (let i = 0; i < drafts.length; i++) {
-      const d = drafts[i];
-      const tipoLabel = TIPO_TAREA_CONFIG[d.tipoTarea]?.label || d.tipoTarea;
-      const titulo = d.clienteNombre.trim()
-        ? `${tipoLabel} – ${d.clienteNombre.trim()}`
-        : tipoLabel;
-      const itemsFiltrados = d.items.filter(it => it.descripcion.trim());
-      const obsFiltradas = d.observaciones.filter(o => o.trim());
+    try {
+      for (let i = 0; i < drafts.length; i++) {
+        const d = drafts[i];
+        const tipoLabel = TIPO_TAREA_CONFIG[d.tipoTarea]?.label || d.tipoTarea;
+        const titulo = d.clienteNombre.trim()
+          ? `${tipoLabel} – ${d.clienteNombre.trim()}`
+          : tipoLabel;
+        const itemsFiltrados = d.items.filter(it => it.descripcion.trim());
+        const obsFiltradas = d.observaciones.filter(o => o.trim());
 
-      await api.createTask({
-        titulo,
-        descripcion: d.descripcion.trim() || undefined,
-        asignado_a: Number(d.asignadoA),
-        fecha_tarea: fechaTarea,
-        prioridad: 'normal',
-        hora: d.hora || undefined,
-        tipo_tarea: d.tipoTarea,
-        cliente_nombre: d.clienteNombre.trim() || undefined,
-        cliente_telefono: d.clienteTelefono.trim() || undefined,
-        direccion: d.direccion.trim() || undefined,
-        ot_numero: d.otNumero.trim() || undefined,
-        vendedor_nombre: d.vendedorNombre.trim() || undefined,
-        items: itemsFiltrados.length > 0 ? itemsFiltrados : undefined,
-        observaciones: obsFiltradas.length > 0 ? obsFiltradas : undefined,
-      });
-      setProgress(i + 1);
+        await api.createTask({
+          titulo,
+          descripcion: d.descripcion.trim() || undefined,
+          asignado_a: Number(d.asignadoA),
+          fecha_tarea: fechaTarea,
+          prioridad: 'normal',
+          hora: d.hora || undefined,
+          tipo_tarea: d.tipoTarea,
+          cliente_nombre: d.clienteNombre.trim() || undefined,
+          cliente_telefono: d.clienteTelefono.trim() || undefined,
+          direccion: d.direccion.trim() || undefined,
+          ot_numero: d.otNumero.trim() || undefined,
+          vendedor_nombre: d.vendedorNombre.trim() || undefined,
+          items: itemsFiltrados.length > 0 ? itemsFiltrados : undefined,
+          observaciones: obsFiltradas.length > 0 ? obsFiltradas : undefined,
+        });
+        setProgress(i + 1);
+      }
+      onCreated();
+    } catch (e: any) {
+      setError(e.message || 'Error al crear la tarea');
+    } finally {
+      setSubmitting(false);
     }
-
-    setSubmitting(false);
-    onCreated();
   };
 
   const inp = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200';

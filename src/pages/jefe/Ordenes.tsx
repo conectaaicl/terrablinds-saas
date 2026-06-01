@@ -13,7 +13,7 @@ function GoogleMapsLink({ direccion }: { direccion: string }) {
   const url = `https://maps.google.com/?q=${encodeURIComponent(direccion)}`;
   return (
     <a href={url} target="_blank" rel="noopener noreferrer"
-      className="flex items-center gap-1 text-blue-600 hover:underline text-xs">
+      className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 hover:underline text-xs">
       <ExternalLink size={11} />{direccion}
     </a>
   );
@@ -25,7 +25,6 @@ const fmtDate = (s: string) => s ? new Date(s).toLocaleDateString('es-CL') : '�
 // ═══════════════════════════════════════════════
 // LISTA DE ÓRDENES
 // ═══════════════════════════════════════════════
-// Quick-assign cell: shows name if assigned, inline select if not (or if clicking assign icon)
 function QuickAssignCell({
   orderId, currentId, currentNombre, userList, tipo, onAssigned,
 }: {
@@ -51,9 +50,9 @@ function QuickAssignCell({
   if (currentId && !open) {
     return (
       <div className="flex items-center gap-1 group">
-        <span className="text-xs text-slate-700 font-medium truncate max-w-[90px]">{currentNombre}</span>
+        <span className="text-xs text-slate-300 font-medium truncate max-w-[90px]">{currentNombre}</span>
         <button onClick={() => setOpen(true)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-600">
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-slate-300">
           <UserPlus size={12} />
         </button>
       </div>
@@ -67,7 +66,7 @@ function QuickAssignCell({
       disabled={saving}
       onChange={e => doAssign(e.target.value)}
       onBlur={() => setOpen(false)}
-      className="rounded border border-slate-300 py-0.5 pl-1.5 pr-6 text-xs text-slate-700 outline-none focus:border-slate-400 max-w-[110px] disabled:opacity-60"
+      className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] py-0.5 pl-1.5 pr-6 text-xs text-slate-300 outline-none focus:border-indigo-500 max-w-[110px] disabled:opacity-60"
     >
       <option value="">— {tipo === 'fabricante' ? 'Fabricante' : 'Instalador'} —</option>
       {userList.map((u: any) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
@@ -104,20 +103,20 @@ export function OrdenesLista() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Órdenes</h1>
-        <p className="text-sm text-slate-500">{orderList.length} órdenes en total</p>
+        <h1 className="text-2xl font-bold text-slate-100">Órdenes</h1>
+        <p className="text-sm text-slate-400">{orderList.length} órdenes en total</p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por N° o cliente..."
-            className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200" />
+            className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] py-2 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-indigo-500" />
         </div>
         <div className="relative">
           <Filter size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <select value={filtro} onChange={e => setFiltro(e.target.value)}
-            className="rounded-lg border border-slate-300 py-2 pl-9 pr-8 text-sm outline-none focus:border-slate-500">
+            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] py-2 pl-9 pr-8 text-sm text-slate-100 outline-none focus:border-indigo-500">
             <option value="todos">Todos</option>
             {(Object.keys(ESTADO_CONFIG) as EstadoOrden[]).map(e => (
               <option key={e} value={e}>{ESTADO_CONFIG[e].label}</option>
@@ -126,10 +125,10 @@ export function OrdenesLista() {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] backdrop-blur-xl shadow-[0_32px_80px_rgba(0,0,0,0.5)]">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <tr className="border-b border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.04)] text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
               <th className="px-4 py-3">Orden</th>
               <th className="px-4 py-3">Cliente</th>
               <th className="hidden px-4 py-3 md:table-cell">Vendedor</th>
@@ -141,14 +140,14 @@ export function OrdenesLista() {
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {filtered.map(o => {
               const cfg = ESTADO_CONFIG[o.estado as EstadoOrden] || ESTADO_CONFIG.cotizado;
               return (
-                <tr key={o.id} className="transition hover:bg-slate-50">
-                  <td className="px-4 py-3 font-semibold text-slate-800">#{o.numero}</td>
-                  <td className="px-4 py-3 text-slate-600">{o.cliente_nombre || '—'}</td>
-                  <td className="hidden px-4 py-3 text-slate-500 md:table-cell">{o.vendedor_nombre || '—'}</td>
+                <tr key={o.id} className="border-b border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.02)] transition">
+                  <td className="px-4 py-3 font-semibold text-slate-100">#{o.numero}</td>
+                  <td className="px-4 py-3 text-slate-300">{o.cliente_nombre || '—'}</td>
+                  <td className="hidden px-4 py-3 text-slate-400 md:table-cell">{o.vendedor_nombre || '—'}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
                   </td>
@@ -162,10 +161,10 @@ export function OrdenesLista() {
                       orderId={o.id} currentId={o.instalador_id} currentNombre={o.instalador_nombre}
                       userList={insList} tipo="instalador" onAssigned={refetch} />
                   </td>
-                  <td className="hidden px-4 py-3 text-right font-semibold text-slate-800 sm:table-cell">{fmt(o.precio_total)}</td>
+                  <td className="hidden px-4 py-3 text-right font-semibold text-slate-100 sm:table-cell">{fmt(o.precio_total)}</td>
                   <td className="hidden px-4 py-3 text-slate-400 lg:table-cell">{fmtDate(o.created_at)}</td>
                   <td className="px-4 py-3">
-                    <Link to={`${base}/ordenes/${o.id}`} className="hover:opacity-70" style={{ color: 'var(--brand-primary)' }}>
+                    <Link to={`${base}/ordenes/${o.id}`} className="text-indigo-400 hover:text-indigo-300">
                       <ChevronRight size={17} />
                     </Link>
                   </td>
@@ -236,97 +235,97 @@ export function OrdenDetalle() {
 
   return (
     <div className="space-y-5">
-      <button onClick={() => nav(-1)} className="flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800">
+      <button onClick={() => nav(-1)} className="flex items-center gap-1 text-sm font-medium text-slate-400 hover:text-slate-100">
         <ArrowLeft size={15} /> Volver
       </button>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">#{orden.numero}</h1>
-          <p className="text-sm text-slate-500">Creada el {fmtDate(orden.created_at)}</p>
+          <h1 className="text-2xl font-bold text-slate-100">#{orden.numero}</h1>
+          <p className="text-sm text-slate-400">Creada el {fmtDate(orden.created_at)}</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-sm font-semibold ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <h2 className="mb-4 text-base font-semibold text-slate-900">Personas</h2>
+          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] backdrop-blur-xl shadow-[0_32px_80px_rgba(0,0,0,0.5)] p-5">
+            <h2 className="mb-4 text-base font-semibold text-slate-100">Personas</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <InfoCard label="Cliente" name={orden.cliente_nombre} detail={undefined} direccion={orden.cliente_direccion} />
               <InfoCard label="Vendedor" name={orden.vendedor_nombre} detail={undefined} />
 
               {/* Fabricante */}
-              <div className="rounded-lg bg-slate-50 p-3">
+              <div className="rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] p-3">
                 <p className="text-[11px] font-semibold uppercase text-slate-400">Fabricante</p>
                 {orden.fabricante_nombre ? (
-                  <p className="mt-1 text-sm font-medium text-slate-800">{orden.fabricante_nombre}</p>
+                  <p className="mt-1 text-sm font-medium text-slate-100">{orden.fabricante_nombre}</p>
                 ) : ['aprobada', 'confirmado', 'en_fabricacion'].includes(orden.estado) ? (
                   <select
                     defaultValue=""
                     onChange={e => e.target.value && doAsignarFab(e.target.value)}
                     disabled={assigningFab}
-                    className="mt-1 w-full rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-sm font-medium text-amber-800"
+                    className="mt-1 w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-sm font-medium text-amber-400"
                   >
                     <option value="" disabled>
                       {assigningFab ? 'Asignando...' : 'Asignar fabricante →'}
                     </option>
                     {fabList.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
                   </select>
-                ) : <p className="mt-1 text-sm text-slate-400">Sin asignar</p>}
+                ) : <p className="mt-1 text-sm text-slate-500">Sin asignar</p>}
               </div>
 
               {/* Instalador */}
-              <div className="rounded-lg bg-slate-50 p-3">
+              <div className="rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] p-3">
                 <p className="text-[11px] font-semibold uppercase text-slate-400">Instalador</p>
                 {orden.instalador_nombre ? (
-                  <p className="mt-1 text-sm font-medium text-slate-800">{orden.instalador_nombre}</p>
+                  <p className="mt-1 text-sm font-medium text-slate-100">{orden.instalador_nombre}</p>
                 ) : ['listo_para_instalar', 'fabricado', 'instalacion_programada'].includes(orden.estado) ? (
                   <select
                     defaultValue=""
                     onChange={e => e.target.value && doAsignarIns(e.target.value)}
                     disabled={assigningIns}
-                    className="mt-1 w-full rounded border border-violet-300 bg-violet-50 px-2 py-1.5 text-sm font-medium text-violet-800"
+                    className="mt-1 w-full rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-1.5 text-sm font-medium text-violet-400"
                   >
                     <option value="" disabled>
                       {assigningIns ? 'Asignando...' : 'Asignar instalador →'}
                     </option>
                     {insList.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
                   </select>
-                ) : <p className="mt-1 text-sm text-slate-400">Sin asignar</p>}
+                ) : <p className="mt-1 text-sm text-slate-500">Sin asignar</p>}
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <h2 className="mb-4 text-base font-semibold text-slate-900">
+          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] backdrop-blur-xl shadow-[0_32px_80px_rgba(0,0,0,0.5)] p-5">
+            <h2 className="mb-4 text-base font-semibold text-slate-100">
               Productos ({orden.productos?.length || 0})
             </h2>
             <div className="space-y-2.5">
               {(orden.productos || []).map((p: any, i: number) => (
-                <div key={p.id || i} className="rounded-lg border border-slate-200 p-4">
+                <div key={p.id || i} className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">{i + 1}. {p.tipo}</p>
-                      <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-slate-500">
+                      <p className="text-sm font-semibold text-slate-100">{i + 1}. {p.tipo}</p>
+                      <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-slate-400">
                         <span className="flex items-center gap-1"><Ruler size={12} />{p.ancho} × {p.alto} cm</span>
                         <span className="flex items-center gap-1"><Palette size={12} />{p.tela} · {p.color}</span>
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-slate-800">{fmt(p.precio)}</span>
+                    <span className="text-sm font-bold text-slate-100">{fmt(p.precio)}</span>
                   </div>
                 </div>
               ))}
-              <div className="flex justify-end border-t border-slate-100 pt-3">
-                <p className="text-lg font-bold text-slate-900">Total: {fmt(orden.precio_total)}</p>
+              <div className="flex justify-end border-t border-[rgba(255,255,255,0.06)] pt-3">
+                <p className="text-lg font-bold text-slate-100">Total: {fmt(orden.precio_total)}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <h2 className="mb-3 text-base font-semibold text-slate-900">Acciones</h2>
+          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] backdrop-blur-xl shadow-[0_32px_80px_rgba(0,0,0,0.5)] p-5">
+            <h2 className="mb-3 text-base font-semibold text-slate-100">Acciones</h2>
             <div className="space-y-2">
               {changingEstado && (
                 <div className="flex justify-center py-2">
@@ -356,7 +355,7 @@ export function OrdenDetalle() {
               )}
               {/* Alertas de estado */}
               {orden.estado === 'listo_para_instalar' && (
-                <div className="rounded-lg bg-lime-50 p-3 text-center text-xs font-medium text-lime-700">
+                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-center text-xs font-medium text-emerald-400">
                   Listo · Coordinador agenda la instalación
                 </div>
               )}
@@ -381,25 +380,25 @@ export function OrdenDetalle() {
                   });
                   setShowGarantia(v => !v);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition">
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15 transition">
                 <Shield size={14} /> Configurar Garantía
               </button>
               {showGarantia && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 space-y-2">
                   <div>
-                    <label className="block text-xs font-semibold text-emerald-700 mb-1">Meses de Garantía</label>
+                    <label className="block text-xs font-semibold text-emerald-400 mb-1">Meses de Garantía</label>
                     <input type="number" min="1" max="120"
                       value={garantiaForm.garantia_meses}
                       onChange={e => setGarantiaForm(f => ({ ...f, garantia_meses: e.target.value }))}
                       placeholder="Ej: 12"
-                      className="block w-full rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-emerald-400" />
+                      className="block w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-3 py-1.5 text-sm text-slate-100 outline-none focus:border-indigo-500" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-emerald-700 mb-1">Fecha de Instalación</label>
+                    <label className="block text-xs font-semibold text-emerald-400 mb-1">Fecha de Instalación</label>
                     <input type="date"
                       value={garantiaForm.fecha_instalacion}
                       onChange={e => setGarantiaForm(f => ({ ...f, fecha_instalacion: e.target.value }))}
-                      className="block w-full rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-emerald-400" />
+                      className="block w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-3 py-1.5 text-sm text-slate-100 outline-none focus:border-indigo-500" />
                   </div>
                   <button
                     onClick={async () => {
@@ -410,7 +409,7 @@ export function OrdenDetalle() {
                       setShowGarantia(false);
                       refetch();
                     }}
-                    className="w-full py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">
+                    className="w-full py-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white text-xs font-semibold hover:opacity-90 transition">
                     Guardar Garantía
                   </button>
                 </div>
@@ -418,8 +417,8 @@ export function OrdenDetalle() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-900">
+          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] backdrop-blur-xl shadow-[0_32px_80px_rgba(0,0,0,0.5)] p-5">
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-100">
               <Clock size={16} /> Historial
             </h2>
             <Timeline entries={[...(orden.historial || [])].reverse()} />
@@ -434,23 +433,23 @@ export function OrdenDetalle() {
             const activa = fechaVence > hoy;
             const diasRestantes = Math.ceil((fechaVence.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
             return (
-              <div className={`rounded-xl border p-4 ${activa ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
+              <div className={`rounded-2xl border p-4 ${activa ? 'border-emerald-500/20 bg-emerald-500/10' : 'border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)]'}`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <Shield size={16} className={activa ? 'text-emerald-600' : 'text-slate-400'} />
-                  <h3 className={`text-sm font-semibold ${activa ? 'text-emerald-800' : 'text-slate-600'}`}>
+                  <Shield size={16} className={activa ? 'text-emerald-400' : 'text-slate-500'} />
+                  <h3 className={`text-sm font-semibold ${activa ? 'text-emerald-400' : 'text-slate-400'}`}>
                     Garantía {activa ? 'Activa' : 'Vencida'}
                   </h3>
-                  <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${activa ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                  <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${activa ? 'bg-emerald-500/20 text-emerald-400' : 'bg-[rgba(255,255,255,0.05)] text-slate-400'}`}>
                     {orden.garantia_meses} meses
                   </span>
                 </div>
-                <div className="space-y-1 text-xs text-slate-600">
-                  <p>Instalación: <span className="font-medium">{fmtDate(orden.fecha_instalacion)}</span></p>
-                  <p>Vencimiento: <span className="font-medium">{fechaVence.toLocaleDateString('es-CL')}</span></p>
-                  {activa && <p className={`font-semibold ${diasRestantes <= 30 ? 'text-amber-600' : 'text-emerald-700'}`}>
+                <div className="space-y-1 text-xs text-slate-400">
+                  <p>Instalación: <span className="font-medium text-slate-300">{fmtDate(orden.fecha_instalacion)}</span></p>
+                  <p>Vencimiento: <span className="font-medium text-slate-300">{fechaVence.toLocaleDateString('es-CL')}</span></p>
+                  {activa && <p className={`font-semibold ${diasRestantes <= 30 ? 'text-amber-400' : 'text-emerald-400'}`}>
                     {diasRestantes} día{diasRestantes !== 1 ? 's' : ''} restantes
                   </p>}
-                  {!activa && <p className="text-slate-400">Venció hace {Math.abs(diasRestantes)} días</p>}
+                  {!activa && <p className="text-slate-500">Venció hace {Math.abs(diasRestantes)} días</p>}
                 </div>
               </div>
             );
@@ -464,10 +463,10 @@ export function OrdenDetalle() {
 // ── Helpers ──
 function InfoCard({ label, name, detail, direccion }: { label: string; name?: string; detail?: string; direccion?: string }) {
   return (
-    <div className="rounded-lg bg-slate-50 p-3">
+    <div className="rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] p-3">
       <p className="text-[11px] font-semibold uppercase text-slate-400">{label}</p>
-      <p className="mt-1 text-sm font-medium text-slate-800">{name || '—'}</p>
-      {detail && <p className="whitespace-pre-line text-xs text-slate-500">{detail}</p>}
+      <p className="mt-1 text-sm font-medium text-slate-100">{name || '—'}</p>
+      {detail && <p className="whitespace-pre-line text-xs text-slate-400">{detail}</p>}
       {direccion && <GoogleMapsLink direccion={direccion} />}
     </div>
   );
@@ -475,9 +474,9 @@ function InfoCard({ label, name, detail, direccion }: { label: string; name?: st
 
 function Btn({ children, onClick, color, outline }: { children: React.ReactNode; onClick: () => void; color: string; outline?: boolean }) {
   const base = outline
-    ? `border ${color === 'red' ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`
-    : `text-white ${color === 'blue' ? 'bg-blue-500 hover:bg-blue-600' : color === 'red' ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'}`;
-  return <button onClick={onClick} className={`w-full rounded-lg px-3 py-2 text-sm font-semibold transition ${base}`}>{children}</button>;
+    ? `border ${color === 'red' ? 'border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/15' : 'border-[rgba(255,255,255,0.08)] text-slate-300 hover:bg-[rgba(255,255,255,0.04)]'}`
+    : `text-white ${color === 'blue' ? 'bg-gradient-to-r from-indigo-500 to-violet-600 hover:opacity-90 shadow-[0_4px_24px_rgba(99,102,241,0.35)]' : color === 'red' ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'}`;
+  return <button onClick={onClick} className={`w-full rounded-xl px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5 ${base}`}>{children}</button>;
 }
 
 function Timeline({ entries }: { entries: { estado: string; fecha: string; usuario_nombre: string; notas?: string }[] }) {
@@ -488,16 +487,16 @@ function Timeline({ entries }: { entries: { estado: string; fecha: string; usuar
         return (
           <div key={i} className="flex gap-3">
             <div className="flex flex-col items-center">
-              <div className={`mt-0.5 h-2.5 w-2.5 rounded-full ${i === 0 ? c.dot : 'bg-slate-300'}`} />
-              {i < entries.length - 1 && <div className="h-full w-px bg-slate-200" />}
+              <div className={`mt-0.5 h-2.5 w-2.5 rounded-full ${i === 0 ? c.dot : 'bg-slate-600'}`} />
+              {i < entries.length - 1 && <div className="h-full w-px bg-[rgba(255,255,255,0.06)]" />}
             </div>
             <div className="pb-3">
               <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${c.bg} ${c.color}`}>{c.label}</span>
-              <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
+              <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400">
                 <User size={10} />{h.usuario_nombre}
               </p>
-              <p className="text-[11px] text-slate-400">{fmtDate(h.fecha)}</p>
-              {h.notas && <p className="text-[11px] italic text-slate-400">{h.notas}</p>}
+              <p className="text-[11px] text-slate-500">{fmtDate(h.fecha)}</p>
+              {h.notas && <p className="text-[11px] italic text-slate-500">{h.notas}</p>}
             </div>
           </div>
         );

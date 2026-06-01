@@ -3,26 +3,36 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 
-// Las cuentas demo solo se muestran en desarrollo local (npm run dev)
-// En producción (npm run build) este bloque no aparece
 const IS_DEV = import.meta.env.DEV;
 
 const DEMO_ACCOUNTS = [
   { section: 'Super Admin SaaS', accounts: [
-    { email: 'admin@saas.com', pass: 'admin', rol: 'Super Admin', desc: 'Gestiona todos los talleres', color: 'bg-rose-500' },
+    { email: 'admin@saas.com', pass: 'admin', rol: 'Super Admin', desc: 'Gestiona todos los talleres', color: 'rose' },
   ]},
   { section: 'Terrablinds (Cortinas & Toldos)', accounts: [
-    { email: 'jefe@terrablinds.cl', pass: '1234', rol: 'Jefe / Dueño', desc: 'Ve todo el taller', color: 'bg-amber-500' },
-    { email: 'gerente@terrablinds.cl', pass: '1234', rol: 'Gerente', desc: 'Gestión operativa', color: 'bg-orange-500' },
-    { email: 'coordinador@terrablinds.cl', pass: '1234', rol: 'Coordinadora', desc: 'Coordina agenda y operaciones', color: 'bg-cyan-500' },
-    { email: 'andrea@terrablinds.cl', pass: '1234', rol: 'Vendedora', desc: 'Crea cotizaciones', color: 'bg-blue-500' },
-    { email: 'roberto@terrablinds.cl', pass: '1234', rol: 'Fabricante', desc: 'Produce órdenes', color: 'bg-emerald-500' },
-    { email: 'juan@terrablinds.cl', pass: '1234', rol: 'Instalador', desc: 'Instala pedidos', color: 'bg-violet-500' },
+    { email: 'jefe@terrablinds.cl', pass: '1234', rol: 'Jefe / Dueño', desc: 'Ve todo el taller', color: 'amber' },
+    { email: 'gerente@terrablinds.cl', pass: '1234', rol: 'Gerente', desc: 'Gestión operativa', color: 'orange' },
+    { email: 'coordinador@terrablinds.cl', pass: '1234', rol: 'Coordinadora', desc: 'Coordina agenda y operaciones', color: 'cyan' },
+    { email: 'andrea@terrablinds.cl', pass: '1234', rol: 'Vendedora', desc: 'Crea cotizaciones', color: 'blue' },
+    { email: 'roberto@terrablinds.cl', pass: '1234', rol: 'Fabricante', desc: 'Produce órdenes', color: 'emerald' },
+    { email: 'juan@terrablinds.cl', pass: '1234', rol: 'Instalador', desc: 'Instala pedidos', color: 'violet' },
   ]},
   { section: 'MaderaCraft (Muebles a Medida)', accounts: [
-    { email: 'sofia@maderacraft.cl', pass: '1234', rol: 'Jefa / Dueña', desc: 'Ve todo el taller', color: 'bg-amber-500' },
-    { email: 'luis@maderacraft.cl', pass: '1234', rol: 'Vendedor', desc: 'Crea cotizaciones', color: 'bg-blue-500' },
+    { email: 'sofia@maderacraft.cl', pass: '1234', rol: 'Jefa / Dueña', desc: 'Ve todo el taller', color: 'amber' },
+    { email: 'luis@maderacraft.cl', pass: '1234', rol: 'Vendedor', desc: 'Crea cotizaciones', color: 'blue' },
   ]},
+];
+
+const dotColors: Record<string, string> = {
+  rose: '#f43f5e', amber: '#f59e0b', orange: '#f97316',
+  cyan: '#06b6d4', blue: '#3b82f6', emerald: '#10b981', violet: '#8b5cf6',
+};
+
+const features = [
+  { t: 'Multi-Tenant', d: 'Datos aislados por empresa' },
+  { t: '6 Roles', d: 'Admin, Jefe, Vendedor, etc.' },
+  { t: 'Emails Automáticos', d: 'Conectado a mail.conectaai.cl' },
+  { t: 'GPS en Vivo', d: 'Tracking de instaladores en tiempo real' },
 ];
 
 export default function Login() {
@@ -50,139 +60,276 @@ export default function Login() {
     setError('');
   };
 
+  const inputBase: React.CSSProperties = {
+    width: '100%', boxSizing: 'border-box',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '12px', padding: '13px 16px',
+    color: '#fff', fontSize: '14px', outline: 'none',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+  };
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = '#6366f1';
+    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)';
+  };
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+    e.currentTarget.style.boxShadow = 'none';
+  };
+
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      {/* Left - Hero (desktop only) */}
-      <div className="hidden w-[50%] flex-col justify-between bg-[#0f0f23] p-10 lg:flex">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 text-lg">&#9889;</div>
-          <span className="text-lg font-bold text-white">WorkShopOS</span>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#060b14' }}>
+
+      {/* ── Left panel (desktop only) ── */}
+      <div
+        className="hidden lg:flex"
+        style={{
+          width: '50%', flexDirection: 'column', justifyContent: 'space-between',
+          padding: '48px', background: '#070b14', position: 'relative', overflow: 'hidden',
+        }}
+      >
+        {/* Decorative orbs */}
+        <div style={{
+          position: 'absolute', top: '-80px', left: '-80px',
+          width: '400px', height: '400px', borderRadius: '50%',
+          background: 'rgba(99,102,241,0.08)', filter: 'blur(80px)', pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: '60px', right: '-60px',
+          width: '320px', height: '320px', borderRadius: '50%',
+          background: 'rgba(139,92,246,0.05)', filter: 'blur(80px)', pointerEvents: 'none',
+        }} />
+        {/* Grid lines */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          backgroundImage: 'linear-gradient(rgba(99,102,241,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.04) 1px,transparent 1px)',
+          backgroundSize: '60px 60px',
+        }} />
+
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
+          <div style={{
+            width: '44px', height: '44px', borderRadius: '12px',
+            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 0 24px rgba(99,102,241,0.45)',
+            fontSize: '20px', fontWeight: 900, color: '#fff',
+          }}>W</div>
+          <span style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>ConectaWork</span>
         </div>
 
-        <div className="max-w-lg space-y-5">
-          <h2 className="text-4xl font-extrabold leading-tight text-white">
-            SaaS Multi-Tenant<br />
-            <span className="text-rose-400">Marca Blanca</span>
+        {/* Hero text */}
+        <div style={{ maxWidth: '460px', position: 'relative' }}>
+          <h2 style={{ fontSize: '48px', fontWeight: 900, color: '#fff', lineHeight: 1.1, margin: 0 }}>
+            ConectaWork
           </h2>
-          <p className="text-base leading-relaxed text-slate-400">
-            Plataforma para talleres de fabricación e instalación a medida.
-            Cada empresa con su propia marca, colores y datos aislados.
+          <p style={{ marginTop: '16px', fontSize: '16px', color: '#94a3b8', lineHeight: 1.6 }}>
+            SaaS Multi-Tenant para Talleres a Medida
           </p>
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            {[
-              { t: 'Multi-Tenant', d: 'Datos aislados por empresa' },
-              { t: 'Marca Blanca', d: 'Cada taller con su identidad' },
-              { t: '6 Roles', d: 'Admin, Jefe, Coordinador, Vendedor, Fabricante, Instalador' },
-              { t: 'API Real', d: 'FastAPI + PostgreSQL + JWT' },
-            ].map(f => (
-              <div key={f.t} className="rounded-xl bg-white/5 p-4">
-                <p className="text-sm font-semibold text-rose-300">{f.t}</p>
-                <p className="mt-1 text-xs text-slate-400">{f.d}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '32px' }}>
+            {features.map(f => (
+              <div key={f.t} style={{
+                borderRadius: '14px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                padding: '16px', backdropFilter: 'blur(12px)',
+              }}>
+                <p style={{ fontSize: '13px', fontWeight: 700, color: '#818cf8', margin: 0 }}>{f.t}</p>
+                <p style={{ fontSize: '11px', color: '#64748b', margin: '4px 0 0' }}>{f.d}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="text-xs text-slate-600">&copy; 2025 WorkShopOS &middot; SaaS para talleres a medida</p>
+        <p style={{ fontSize: '11px', color: '#334155', position: 'relative' }}>
+          &copy; 2026 ConectaWork &middot; Conecta AI
+        </p>
       </div>
 
-      {/* Right - Login form */}
-      <div className="flex w-full flex-col items-center justify-start overflow-y-auto px-5 py-8 lg:w-[50%] lg:justify-center lg:py-4">
-        <div className="w-full max-w-[460px] space-y-5">
-          {/* Mobile header */}
-          <div className="text-center lg:hidden">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 to-rose-600 text-2xl">&#9889;</div>
-            <h1 className="mt-2 text-xl font-bold text-slate-800">WorkShopOS</h1>
-            <p className="text-sm text-slate-500">SaaS Multi-Tenant para Talleres</p>
+      {/* ── Right panel ── */}
+      <div
+        className="lg:w-[50%] lg:justify-center lg:py-4"
+        style={{
+          width: '100%', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'flex-start',
+          overflowY: 'auto', padding: '32px 20px', background: '#060b14',
+        }}
+      >
+        <div style={{ width: '100%', maxWidth: '460px' }}>
+
+          {/* Mobile logo */}
+          <div className="lg:hidden" style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <div style={{
+              margin: '0 auto', width: '56px', height: '56px', borderRadius: '16px',
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 0 24px rgba(99,102,241,0.45)',
+              fontSize: '24px', fontWeight: 900, color: '#fff',
+            }}>W</div>
+            <h1 style={{ marginTop: '10px', fontSize: '20px', fontWeight: 700, color: '#fff' }}>ConectaWork</h1>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>SaaS Multi-Tenant para Talleres</p>
           </div>
 
-          {/* Info PWA */}
-          <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
-            <p className="font-semibold">Usa esta aplicación como APP en tu celular</p>
-            <p className="mt-1 text-[11px] text-emerald-700/80">
-              1. Abre esta página desde tu celular &middot; 2. En el navegador toca "Agregar a la pantalla de inicio" &middot; 3. Se instalará como app.
+          {/* PWA tip */}
+          <div style={{
+            marginBottom: '20px', borderRadius: '12px',
+            background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)',
+            padding: '12px 14px',
+          }}>
+            <p style={{ fontSize: '12px', fontWeight: 700, color: '#34d399', margin: 0 }}>
+              Usa esta aplicaci&oacute;n como APP en tu celular
+            </p>
+            <p style={{ fontSize: '11px', color: '#6ee7b7', margin: '4px 0 0', lineHeight: 1.5 }}>
+              1. Abre esta p&aacute;gina desde tu celular &middot; 2. En el navegador toca &ldquo;Agregar a la pantalla de inicio&rdquo; &middot; 3. Se instalar&aacute; como app.
             </p>
           </div>
 
-          {/* Login form */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <h2 className="text-xl font-bold text-slate-900">Iniciar Sesión</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {IS_DEV ? 'Entorno de desarrollo — usa las cuentas de demo abajo' : 'Ingresa con tus credenciales'}
+          {/* Login card */}
+          <div style={{
+            background: 'rgba(10,16,32,0.9)',
+            border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: '20px', padding: '36px',
+            backdropFilter: 'blur(32px)',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
+          }}>
+            <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#fff', margin: 0 }}>Bienvenido</h2>
+            <p style={{ marginTop: '6px', fontSize: '13px', color: '#64748b', marginBottom: 0 }}>
+              {IS_DEV ? 'Entorno de desarrollo — usa las cuentas de demo abajo' : 'Ingresa con tus credenciales de acceso'}
             </p>
 
-            <form onSubmit={submit} className="mt-4 space-y-3">
+            <form onSubmit={submit} style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">
-                  <AlertCircle size={15} className="shrink-0" /> {error}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  borderRadius: '10px', background: 'rgba(239,68,68,0.1)',
+                  border: '1px solid rgba(239,68,68,0.25)',
+                  padding: '10px 14px', fontSize: '13px', color: '#fca5a5',
+                }}>
+                  <AlertCircle size={15} style={{ flexShrink: 0 }} /> {error}
                 </div>
               )}
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+                <label style={{
+                  display: 'block', marginBottom: '6px', fontSize: '11px', fontWeight: 700,
+                  letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b',
+                }}>Email</label>
                 <input
                   type="email" value={email} onChange={e => setEmail(e.target.value)} required
                   placeholder="tu@email.com"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+                  style={inputBase} onFocus={handleFocus} onBlur={handleBlur}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Contraseña</label>
-                <div className="relative">
+                <label style={{
+                  display: 'block', marginBottom: '6px', fontSize: '11px', fontWeight: 700,
+                  letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b',
+                }}>Contrase&ntilde;a</label>
+                <div style={{ position: 'relative' }}>
                   <input
-                    type={show ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required
-                    placeholder="••••••••"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 pr-10 text-sm outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+                    type={show ? 'text' : 'password'} value={password}
+                    onChange={e => setPassword(e.target.value)} required
+                    placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;"
+                    style={{ ...inputBase, paddingRight: '44px' }}
+                    onFocus={handleFocus} onBlur={handleBlur}
                   />
-                  <button type="button" onClick={() => setShow(!show)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <button type="button" onClick={() => setShow(!show)} style={{
+                    position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: 0,
+                  }}>
                     {show ? <EyeOff size={17} /> : <Eye size={17} />}
                   </button>
                 </div>
               </div>
 
-              <button type="submit" disabled={submitting}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-600 active:scale-[0.98] disabled:opacity-60">
+              <button
+                type="submit"
+                disabled={submitting}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                  border: 'none', borderRadius: '12px', padding: '14px',
+                  color: '#fff', fontSize: '14px', fontWeight: 700,
+                  cursor: submitting ? 'not-allowed' : 'pointer',
+                  opacity: submitting ? 0.6 : 1,
+                  transition: 'opacity 0.2s, transform 0.2s, box-shadow 0.2s',
+                }}
+                onMouseEnter={e => {
+                  if (!submitting) {
+                    e.currentTarget.style.opacity = '0.88';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 8px 32px rgba(99,102,241,0.45)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.opacity = submitting ? '0.6' : '1';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
                 {submitting ? 'Ingresando...' : 'Entrar'}
               </button>
 
-              <div className="text-center">
-                <Link to="/forgot-password" className="text-xs text-rose-500 hover:text-rose-700 hover:underline">
-                  ¿Olvidaste tu contraseña?
+              <div style={{ textAlign: 'center' }}>
+                <Link
+                  to="/forgot-password"
+                  style={{ fontSize: '13px', color: '#818cf8', textDecoration: 'none' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none'; }}
+                >
+                  &iquest;Olvidaste tu contrase&ntilde;a?
                 </Link>
               </div>
             </form>
           </div>
 
-          {/* Demo accounts — SOLO en desarrollo */}
+          {/* Demo accounts SOLO en desarrollo */}
           {IS_DEV && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-slate-700">Cuentas de Demo &mdash; Haz clic para usar</h3>
-
+            <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: 700, color: '#94a3b8', margin: 0 }}>
+                Cuentas de Demo &mdash; Haz clic para usar
+              </h3>
               {DEMO_ACCOUNTS.map(section => (
-                <div key={section.section} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-                  <div className="bg-slate-50 px-4 py-2 border-b border-slate-100">
-                    <p className="text-xs font-bold text-slate-600">{section.section}</p>
+                <div key={section.section} style={{
+                  borderRadius: '14px', border: '1px solid rgba(255,255,255,0.07)',
+                  background: 'rgba(10,16,32,0.7)', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    background: 'rgba(255,255,255,0.03)', padding: '8px 16px',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  }}>
+                    <p style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', margin: 0 }}>{section.section}</p>
                   </div>
-                  <div className="divide-y divide-slate-50">
-                    {section.accounts.map(acc => (
+                  <div>
+                    {section.accounts.map((acc, idx) => (
                       <button
                         key={acc.email}
                         onClick={() => fill(acc.email, acc.pass)}
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-blue-50"
+                        style={{
+                          display: 'flex', width: '100%', alignItems: 'center', gap: '12px',
+                          padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none',
+                          cursor: 'pointer', color: 'inherit',
+                          borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.06)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
                       >
-                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${acc.color}`} />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-slate-800">{acc.rol}</span>
-                            <span className="text-[10px] text-slate-400">&middot;</span>
-                            <span className="truncate text-[11px] text-slate-500">{acc.email}</span>
+                        <span style={{
+                          display: 'block', width: '10px', height: '10px', borderRadius: '50%',
+                          flexShrink: 0, background: dotColors[acc.color] || '#64748b',
+                        }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1' }}>{acc.rol}</span>
+                            <span style={{ fontSize: '10px', color: '#475569' }}>&middot;</span>
+                            <span style={{ fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{acc.email}</span>
                           </div>
-                          <p className="text-[10px] text-slate-400">{acc.desc} &middot; pass: {acc.pass}</p>
+                          <p style={{ fontSize: '10px', color: '#475569', margin: '2px 0 0' }}>{acc.desc} &middot; pass: {acc.pass}</p>
                         </div>
-                        <ArrowRight size={13} className="shrink-0 text-slate-300" />
+                        <ArrowRight size={13} style={{ flexShrink: 0, color: '#334155' }} />
                       </button>
                     ))}
                   </div>
@@ -191,7 +338,9 @@ export default function Login() {
             </div>
           )}
 
-          <p className="text-center text-[11px] text-slate-400 lg:hidden">&copy; 2025 WorkShopOS</p>
+          <p className="lg:hidden" style={{ textAlign: 'center', fontSize: '11px', color: '#334155', marginTop: '20px' }}>
+            &copy; 2026 ConectaWork
+          </p>
         </div>
       </div>
     </div>

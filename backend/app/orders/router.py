@@ -1,34 +1,35 @@
 from datetime import datetime, timezone
-from typing import Optional
-from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import TokenData, require_roles
+from app.auth.router import limiter
 from app.dependencies import get_db_for_tenant
 from app.models.attachment import DigitalSignature
+from app.models.user import User
 from app.orders.schemas import (
     AssignRequest,
+    ChecklistSave,
     EstadoChange,
+    GarantiaUpdate,
     HistorialEntry,
     OrderCreate,
     OrderResponse,
+    SignatureRequest,
+    SubestadoUpdate,
 )
 from app.orders.service import OrderService
-
-
-class SignatureRequest(BaseModel):
-    firma_data: str                    # base64 PNG
-    firmante_nombre: str
-    firmante_rut: Optional[str] = None
-    firmante_email: Optional[str] = None
-    lat: Optional[float] = None
-    lon: Optional[float] = None
+from app.comisiones.service import generar_comisiones_orden
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+
+
+async def _resolve_user_nombre(db: AsyncSession, user_id: int) -> str:
+    result = await db.execute(select(User.nombre).where(User.id == user_id))
+    row = result.one_or_none()
+    return row.nombre if row else ""
 
 
 def _order_to_response(o) -> OrderResponse:
@@ -42,7 +43,6 @@ def _order_to_response(o) -> OrderResponse:
         )
         for h in (o.historial or [])
     ]
-    # Determinar cuándo se entró al estado actual (último historial con ese estado)
     estado_updated_at = None
     if o.historial:
         for h in reversed(o.historial):
@@ -80,6 +80,8 @@ def _order_to_response(o) -> OrderResponse:
 
 @router.get("/", response_model=list[OrderResponse])
 async def list_orders(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     token_data: TokenData = Depends(require_roles(
         "jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "bodegas", "superadmin"
     )),
@@ -91,17 +93,21 @@ async def list_orders(
         user_id=token_data.user_id,
         role=token_data.role,
     )
-    return [_order_to_response(o) for o in orders]
+    page = orders[skip: skip + limit]
+    return [_order_to_response(o) for o in page]
 
 
 @router.post("/", response_model=OrderResponse, status_code=201)
+@limiter.limit("20/minute")
 async def create_order(
+    request: Request,
     data: OrderCreate,
     token_data: TokenData = Depends(require_roles("jefe", "gerente", "vendedor", "coordinador")),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
+    user_nombre = await _resolve_user_nombre(db, token_data.user_id)
     service = OrderService(db)
-    order = await service.create_order(data, token_data.user_id, token_data.tenant_id)
+    order = await service.create_order(data, token_data.user_id, user_nombre, token_data.tenant_id)
     await db.refresh(order, ["client", "vendedor", "fabricante", "instalador", "historial"])
     return _order_to_response(order)
 
@@ -129,14 +135,16 @@ async def change_estado(
     )),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
+    user_nombre = await _resolve_user_nombre(db, token_data.user_id)
     service = OrderService(db)
     order = await service.change_estado(
         order_id, data,
         user_id=token_data.user_id,
-        user_nombre="",
+        user_nombre=user_nombre,
         tenant_id=token_data.tenant_id,
         role=token_data.role,
     )
+    await generar_comisiones_orden(db, order, data.estado)
     await db.refresh(order, ["client", "vendedor", "fabricante", "instalador", "historial"])
     return _order_to_response(order)
 
@@ -148,11 +156,12 @@ async def assign_fabricante(
     token_data: TokenData = Depends(require_roles("jefe", "gerente", "coordinador")),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
+    user_nombre = await _resolve_user_nombre(db, token_data.user_id)
     service = OrderService(db)
     order = await service.assign_fabricante(
         order_id, data,
         user_id=token_data.user_id,
-        user_nombre="",
+        user_nombre=user_nombre,
         tenant_id=token_data.tenant_id,
     )
     await db.refresh(order, ["client", "vendedor", "fabricante", "instalador", "historial"])
@@ -166,11 +175,12 @@ async def assign_instalador(
     token_data: TokenData = Depends(require_roles("jefe", "gerente", "coordinador")),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
+    user_nombre = await _resolve_user_nombre(db, token_data.user_id)
     service = OrderService(db)
     order = await service.assign_instalador(
         order_id, data,
         user_id=token_data.user_id,
-        user_nombre="",
+        user_nombre=user_nombre,
         tenant_id=token_data.tenant_id,
     )
     await db.refresh(order, ["client", "vendedor", "fabricante", "instalador", "historial"])
@@ -184,11 +194,6 @@ async def save_signature(
     token_data: TokenData = Depends(require_roles("instalador", "coordinador", "jefe", "gerente")),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
-    """
-    Guarda la firma digital del cliente para una orden.
-    Reemplaza la firma anterior si ya existe.
-    """
-    # Verificar que la orden existe y pertenece al tenant
     result = await db.execute(
         text("SELECT id FROM orders WHERE id = :id AND tenant_id = :tid"),
         {"id": order_id, "tid": token_data.tenant_id},
@@ -196,7 +201,6 @@ async def save_signature(
     if not result.fetchone():
         raise HTTPException(status_code=404, detail="Orden no encontrada")
 
-    # Eliminar firma anterior si existe
     await db.execute(
         text("DELETE FROM digital_signatures WHERE order_id = :id AND tenant_id = :tid"),
         {"id": order_id, "tid": token_data.tenant_id},
@@ -227,17 +231,12 @@ async def get_checklist(
     )),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
-    """Devuelve el estado actual del checklist de una orden."""
     result = await db.execute(
         text("SELECT items FROM order_checklist_simple WHERE order_id = :id AND tenant_id = :tid"),
         {"id": order_id, "tid": token_data.tenant_id},
     )
     row = result.fetchone()
     return {"items": row.items if row else {}}
-
-
-class ChecklistSave(BaseModel):
-    items: dict
 
 
 @router.put("/{order_id}/checklist", status_code=200)
@@ -249,9 +248,7 @@ async def save_checklist(
     )),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
-    """Guarda (upsert) el estado del checklist de una orden."""
     import json
-    items = data.items
     await db.execute(
         text("""
             INSERT INTO order_checklist_simple (order_id, tenant_id, items, updated_at, updated_by)
@@ -259,7 +256,7 @@ async def save_checklist(
             ON CONFLICT (order_id, tenant_id) DO UPDATE
             SET items = :items::jsonb, updated_at = NOW(), updated_by = :uid
         """),
-        {"id": order_id, "tid": token_data.tenant_id, "items": json.dumps(dict(items)), "uid": token_data.user_id},
+        {"id": order_id, "tid": token_data.tenant_id, "items": json.dumps(dict(data.items)), "uid": token_data.user_id},
     )
     await db.commit()
     return {"ok": True}
@@ -273,7 +270,6 @@ async def get_signature(
     )),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
-    """Obtiene la firma digital de una orden si existe."""
     result = await db.execute(
         select(DigitalSignature).where(
             DigitalSignature.order_id == order_id,
@@ -294,10 +290,6 @@ async def get_signature(
     }
 
 
-class SubestadoUpdate(BaseModel):
-    subestado: str  # en_corte | en_armado | listo | None
-
-
 @router.patch("/{order_id}/subestado", status_code=200)
 async def update_subestado(
     order_id: int,
@@ -305,10 +297,9 @@ async def update_subestado(
     token_data: TokenData = Depends(require_roles("fabricante", "jefe", "gerente", "coordinador")),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
-    """Actualiza el subestado de producción de una orden."""
-    from app.models.order import Order
+    from app.models.order import Order as _Order
     result = await db.execute(
-        select(Order).where(Order.id == order_id, Order.tenant_id == token_data.tenant_id)
+        select(_Order).where(_Order.id == order_id, _Order.tenant_id == token_data.tenant_id)
     )
     order = result.scalar_one_or_none()
     if not order:
@@ -321,11 +312,6 @@ async def update_subestado(
     return {"ok": True, "subestado": order.produccion_subestado}
 
 
-class GarantiaUpdate(BaseModel):
-    garantia_meses: Optional[int] = None
-    fecha_instalacion: Optional[str] = None  # ISO format
-
-
 @router.patch("/{order_id}/garantia", status_code=200)
 async def update_garantia(
     order_id: int,
@@ -333,11 +319,10 @@ async def update_garantia(
     token_data: TokenData = Depends(require_roles("jefe", "gerente", "coordinador")),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
-    """Actualiza datos de garantía de una orden."""
-    from app.models.order import Order
-    from datetime import datetime
+    from app.models.order import Order as _Order
+    from datetime import datetime as _dt
     result = await db.execute(
-        select(Order).where(Order.id == order_id, Order.tenant_id == token_data.tenant_id)
+        select(_Order).where(_Order.id == order_id, _Order.tenant_id == token_data.tenant_id)
     )
     order = result.scalar_one_or_none()
     if not order:
@@ -345,7 +330,10 @@ async def update_garantia(
     if data.garantia_meses is not None:
         order.garantia_meses = data.garantia_meses
     if data.fecha_instalacion is not None:
-        order.fecha_instalacion = datetime.fromisoformat(data.fecha_instalacion)
+        order.fecha_instalacion = _dt.fromisoformat(data.fecha_instalacion)
     await db.commit()
-    return {"ok": True, "garantia_meses": order.garantia_meses,
-            "fecha_instalacion": order.fecha_instalacion.isoformat() if order.fecha_instalacion else None}
+    return {
+        "ok": True,
+        "garantia_meses": order.garantia_meses,
+        "fecha_instalacion": order.fecha_instalacion.isoformat() if order.fecha_instalacion else None,
+    }

@@ -35,6 +35,10 @@ import PostVenta from './pages/post_venta/PostVenta';
 import RRHH from './pages/rrhh/RRHH';
 import SolicitudesRRHH from './pages/rrhh/SolicitudesRRHH';
 import ReglasMateriales from './pages/jefe/ReglasMateriales';
+import Comisiones from './pages/jefe/Comisiones';
+import MisComisiones from './pages/shared/MisComisiones';
+import RegistroTrabajo from './pages/jefe/RegistroTrabajo';
+import MisGanancias from './pages/shared/MisGanancias';
 import JefeAverias from './pages/jefe/Averias';
 import InstaladorAverias from './pages/instalador/Averias';
 import InstaladorTracking from './pages/instalador/InstaladorTracking';
@@ -141,6 +145,8 @@ function AppRoutes() {
           <Route path="/jefe/agenda" element={<AgendaSemanal />} />
           <Route path="/jefe/tareas" element={<GestionTareas />} />
           <Route path="/jefe/gps" element={<MapaGPS />} />
+          <Route path="/jefe/comisiones" element={<Comisiones />} />
+          <Route path="/jefe/registro-trabajo" element={<RegistroTrabajo />} />
           <Route path="/jefe/cambiar-password" element={<ChangePassword />} />
         </Route>
       </Route>
@@ -165,6 +171,8 @@ function AppRoutes() {
           <Route path="/gerente/agenda" element={<AgendaSemanal />} />
           <Route path="/gerente/tareas" element={<GestionTareas />} />
           <Route path="/gerente/gps" element={<MapaGPS />} />
+          <Route path="/gerente/comisiones" element={<Comisiones />} />
+          <Route path="/gerente/registro-trabajo" element={<RegistroTrabajo />} />
           <Route path="/gerente/cambiar-password" element={<ChangePassword />} />
         </Route>
       </Route>
@@ -184,6 +192,7 @@ function AppRoutes() {
           <Route path="/coordinador/post-venta" element={<PostVenta />} />
           <Route path="/coordinador/averias" element={<JefeAverias />} />
           <Route path="/coordinador/rrhh" element={<RRHH />} />
+          <Route path="/coordinador/registro-trabajo" element={<RegistroTrabajo />} />
           <Route path="/coordinador/cambiar-password" element={<ChangePassword />} />
         </Route>
       </Route>
@@ -200,6 +209,8 @@ function AppRoutes() {
           <Route path="/vendedor/productos" element={<Productos />} />
           <Route path="/vendedor/clientes" element={<Clientes />} />
           <Route path="/vendedor/permisos" element={<SolicitudesRRHH />} />
+          <Route path="/vendedor/mis-comisiones" element={<MisComisiones />} />
+          <Route path="/vendedor/mis-ganancias" element={<MisGanancias />} />
           <Route path="/vendedor/cambiar-password" element={<ChangePassword />} />
         </Route>
       </Route>
@@ -210,6 +221,8 @@ function AppRoutes() {
           <Route path="/fabricante" element={<ColaProduccion />} />
           <Route path="/fabricante/solicitudes" element={<MisSolicitudes />} />
           <Route path="/fabricante/permisos" element={<SolicitudesRRHH />} />
+          <Route path="/fabricante/mis-comisiones" element={<MisComisiones />} />
+          <Route path="/fabricante/mis-ganancias" element={<MisGanancias />} />
           <Route path="/fabricante/:id" element={<DetalleTecnico />} />
           <Route path="/fabricante/cambiar-password" element={<ChangePassword />} />
         </Route>
@@ -222,6 +235,8 @@ function AppRoutes() {
           <Route path="/instalador/tracking" element={<InstaladorTracking />} />
           <Route path="/instalador/averias" element={<InstaladorAverias />} />
           <Route path="/instalador/permisos" element={<SolicitudesRRHH />} />
+          <Route path="/instalador/mis-comisiones" element={<MisComisiones />} />
+          <Route path="/instalador/mis-ganancias" element={<MisGanancias />} />
           <Route path="/instalador/cambiar-password" element={<ChangePassword />} />
           <Route path="/instalador/:id" element={<DetalleInstalacion />} />
         </Route>

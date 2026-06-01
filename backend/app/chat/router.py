@@ -27,7 +27,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 # Roles permitidos por tipo de canal
 CANAL_ROLES: dict[str, set[str]] = {
-    "general":     {"jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "superadmin"},
+    "general":     {"jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "bodegas", "superadmin"},
     "operaciones": {"jefe", "gerente", "coordinador", "fabricante", "instalador"},
     "ventas":      {"jefe", "gerente", "coordinador", "vendedor"},
 }
@@ -64,7 +64,7 @@ async def _get_or_create_channels(db: AsyncSession, tenant_id: str) -> list[Chat
 @router.get("/channels", response_model=list[ChannelOut])
 async def list_channels(
     token_data: TokenData = Depends(require_roles(
-        "jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "superadmin"
+        "jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "bodegas", "superadmin"
     )),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
@@ -82,7 +82,7 @@ async def get_messages(
     channel_id: UUID,
     before: str | None = Query(None, description="ISO datetime — trae mensajes anteriores a esta fecha"),
     token_data: TokenData = Depends(require_roles(
-        "jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "superadmin"
+        "jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "bodegas", "superadmin"
     )),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
@@ -171,7 +171,12 @@ async def websocket_chat(
         user_res = await db.execute(select(User).where(User.id == user_id))
         user_obj = user_res.scalar_one_or_none()
 
-    user_nombre = user_obj.nombre if user_obj else f"Usuario {user_id}"
+    # Verificar que el usuario esté activo (cierra WS si fue desactivado)
+    if user_obj is None or not user_obj.activo:
+        await websocket.close(code=4001)
+        return
+
+    user_nombre = user_obj.nombre
 
     # 4. Conectar al manager
     await manager.connect(websocket, tenant_id, channel_id)

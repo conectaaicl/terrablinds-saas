@@ -64,7 +64,7 @@ services:
 
 networks:
   default:
-    name: workshopos_net
+    name: conectawork_net
 
 volumes:
   pgdata:

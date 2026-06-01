@@ -12,4 +12,4 @@ docker exec working-backend-1 env | grep -E "DATABASE|POSTGRES"
 docker exec working-backend-1 python3 /app/fix_pw.py
 
 # 4. Verify directly in DB
-docker exec working-db-1 psql -U workshopos_app -d workshopos -c "SELECT id, email, password_hash FROM usuarios;"
+docker exec working-db-1 psql -U conectawork_app -d conectawork -c "SELECT id, email, password_hash FROM usuarios;"
