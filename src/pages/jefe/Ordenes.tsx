@@ -7,7 +7,7 @@ import { api } from '../../services/api';
 import { ESTADO_CONFIG } from '../../types';
 import type { EstadoOrden } from '../../types';
 import { Spinner, ErrorMessage } from '../../components/LoadingStates';
-import { Search, Filter, ArrowLeft, Clock, User, Ruler, Palette, ChevronRight, Loader2, ExternalLink, Shield, UserPlus, Camera, FileText, PenLine } from 'lucide-react';
+import { Search, Filter, ArrowLeft, Clock, User, Ruler, Palette, ChevronRight, Loader2, ExternalLink, Shield, UserPlus, Camera, FileText, PenLine, ListTodo, CheckCircle2, Circle } from 'lucide-react';
 
 function GoogleMapsLink({ direccion }: { direccion: string }) {
   const url = `https://maps.google.com/?q=${encodeURIComponent(direccion)}`;
@@ -77,11 +77,24 @@ function QuickAssignCell({
 // ─── Reporte de Instalación (jefe / coordinador / vendedor) ───
 const API_URL_O = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:8000';
 
+const CHECKLIST_ITEMS_J = [
+  { id: 'llegada',    label: 'Llegó al domicilio del cliente' },
+  { id: 'materiales', label: 'Verificó materiales y herramientas' },
+  { id: 'medidas',    label: 'Confirmó medidas en terreno' },
+  { id: 'instalacion',label: 'Instalación realizada conforme' },
+  { id: 'limpieza',   label: 'Zona de trabajo limpia y ordenada' },
+  { id: 'cliente_ok', label: 'Cliente revisó y aprobó el trabajo' },
+  { id: 'fotos_ok',   label: 'Fotos de antes y después tomadas' },
+];
+
 function ReporteInstalacion({ orderId }: { orderId: number }) {
   const { data: fotos } = useApi(() => api.getOrderPhotos(orderId), [orderId]);
   const { data: sigData } = useApi(() => api.getSignature(orderId), [orderId]);
   const fotoList: any[] = fotos || [];
   const firma = sigData?.firma;
+  const { data: checklistData } = useApi(() => api.getChecklist(orderId), [orderId]);
+  const checkItems: Record<string, boolean> = (checklistData as any)?.items || {};
+  const checkDone = CHECKLIST_ITEMS_J.filter(i => checkItems[i.id]).length;
 
   const TIPO_CFG: Record<string, { label: string; color: string }> = {
     antes:   { label: 'Antes',   color: 'bg-slate-100 text-slate-600 border-slate-200'      },
@@ -94,7 +107,7 @@ function ReporteInstalacion({ orderId }: { orderId: number }) {
   const byTipo = (tipo: string) => fotoList.filter(f => f.tipo === tipo);
   const fmtD = (s: string) => s ? new Date(s).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 
-  if (fotoList.length === 0 && !firma) {
+  if (fotoList.length === 0 && !firma && checkDone === 0) {
     return (
       <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] p-5 text-center">
         <Camera size={28} className="mx-auto mb-2 text-slate-500" />
@@ -122,6 +135,27 @@ function ReporteInstalacion({ orderId }: { orderId: number }) {
             {firma.firmante_rut && <span className="ml-2 text-slate-400">· {firma.firmante_rut}</span>}
           </p>
           <p className="text-xs text-slate-400">{fmtD(firma.firmado_at)}</p>
+        </div>
+      )}
+
+      {/* Checklist del instalador */}
+      {checkDone > 0 && (
+        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.02)] p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <ListTodo size={14} className="text-slate-400" />
+            <p className="text-sm font-semibold text-slate-200">Checklist del instalador</p>
+            <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-bold ${checkDone === CHECKLIST_ITEMS_J.length ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-500/15 text-slate-300'}`}>{checkDone}/{CHECKLIST_ITEMS_J.length}</span>
+          </div>
+          <div className="space-y-1.5">
+            {CHECKLIST_ITEMS_J.map(item => (
+              <div key={item.id} className="flex items-center gap-2 text-[13px]">
+                {checkItems[item.id]
+                  ? <CheckCircle2 size={14} className="shrink-0 text-emerald-400" />
+                  : <Circle size={14} className="shrink-0 text-slate-600" />}
+                <span className={checkItems[item.id] ? 'text-slate-300' : 'text-slate-500'}>{item.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
