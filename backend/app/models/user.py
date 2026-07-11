@@ -81,5 +81,8 @@ class User(Base):
         String, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True
     )
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    telefono: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    foto_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
 
     tenant: Mapped[Optional[Tenant]] = relationship(back_populates="users")

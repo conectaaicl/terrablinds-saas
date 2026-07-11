@@ -105,6 +105,7 @@ async def login(
             "rol": role,
             "tenant_id": tenant_id,
             "activo": row.activo,
+            "must_change_password": bool(getattr(row, "must_change_password", False)),
         },
         tenant_branding=branding,
         tenant_nombre=tenant_nombre,
@@ -226,9 +227,15 @@ async def change_password(
             detail="La nueva contraseña debe tener al menos 6 caracteres",
         )
 
-    # Actualizar contraseña
+    # Actualizar contraseña y limpiar flag de cambio forzado
     repo = UserRepository(db)
     await repo.update_password(current_user.id, hash_password(body.new_password))
+    try:
+        from sqlalchemy import update as _update
+        from app.models.user import User as _User
+        await db.execute(_update(_User).where(_User.id == current_user.id).values(must_change_password=False))
+    except Exception:
+        pass
 
     # Notificar por email (no bloquear si falla)
     try:
@@ -353,6 +360,7 @@ async def me(
         "rol": current_user.rol.value,
         "tenant_id": tenant_id,
         "activo": current_user.activo,
+        "foto_url": getattr(current_user, "foto_url", None),
         "tenant_branding": branding,
         "tenant_nombre": tenant_nombre,
     }

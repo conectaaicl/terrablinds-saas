@@ -267,6 +267,7 @@ export const api = {
   getMyAgenda: () => fetchWithAuth('/api/v1/mobile/my-agenda'),
   getMyOrders: () => fetchWithAuth('/api/v1/mobile/my-orders'),
   getColaProduccion: () => fetchWithAuth('/api/v1/mobile/cola-produccion'),
+  uploadMiFoto: (file: File) => { const fd = new FormData(); fd.append('file', file); return fetchWithAuth('/api/v1/users/me/foto', { method: 'POST', body: fd }, true); },
   getHistorialProduccion: () => fetchWithAuth('/api/v1/mobile/historial-produccion'),
   getMisTareasHistorial: () => fetchWithAuth('/api/v1/tasks/historial'),
   getTransitions: (estadoActual: string) =>

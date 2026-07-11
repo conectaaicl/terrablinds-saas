@@ -9,7 +9,7 @@ import {
   FilePlus2, Ruler, CalendarDays, Settings2, ListTodo,
   Package, Radio, FileText, PackageSearch, KeyRound, Warehouse,
   UserCircle2, HeartHandshake, FolderOpen, Navigation, AlertTriangle,
-  TrendingUp, Bell, DollarSign, ClipboardCheck, Sparkles, ShoppingCart,
+  TrendingUp, Bell, DollarSign, ClipboardCheck, Sparkles, ShoppingCart, Camera,
 } from 'lucide-react';
 import { api } from '../services/api';
 import AiChat from './AiChat';
@@ -443,6 +443,20 @@ export default function Layout() {
     : null;
   const changePasswordPath = `/${user.rol === 'superadmin' ? 'admin' : user.rol}/cambiar-password`;
 
+  // ── Foto de perfil (cada usuario sube la suya) ──
+  const [fotoUrl, setFotoUrl] = useState<string | null>((user as any)?.foto_url || null);
+  const fotoInputRef = useRef<HTMLInputElement>(null);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const onFotoSel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setSubiendoFoto(true);
+    try { const r = await (api as any).uploadMiFoto(f); if (r?.foto_url) setFotoUrl(r.foto_url); } catch { /* */ }
+    setSubiendoFoto(false);
+    e.target.value = '';
+  };
+  const fotoSrc = fotoUrl ? (fotoUrl.startsWith('http') ? fotoUrl : `${import.meta.env.VITE_API_URL || ''}${fotoUrl}`) : null;
+
   return (
     <div className="flex h-screen bg-slate-900">
       {/* Mobile overlay */}
@@ -506,7 +520,6 @@ export default function Layout() {
                 {rc.label}
               </span>
             </div>
-            {user.rol !== 'superadmin' && <NotificationBell userId={user.id} />}
           </div>
         </div>
 
@@ -604,32 +617,56 @@ export default function Layout() {
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Mobile header */}
-        <header className="flex items-center gap-3 border-b border-slate-700 bg-slate-800 px-4 py-2.5 lg:hidden shadow-sm">
+        {/* Header universal: logo + campanita + perfil con foto */}
+        <header className="flex items-center gap-3 border-b border-slate-700 bg-slate-800 px-4 py-2 shadow-sm">
           <button
             onClick={() => setOpen(true)}
-            className="rounded-lg p-1 text-slate-300 transition-colors hover:bg-slate-700"
+            className="rounded-lg p-1 text-slate-300 transition-colors hover:bg-slate-700 lg:hidden"
           >
             <Menu size={22} />
           </button>
           <div className="flex items-center gap-2">
-            <div
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-base"
-              style={{ background: 'linear-gradient(135deg, var(--brand-light), var(--brand-primary))' }}
-            >
-              <span>{brandEmoji}</span>
-            </div>
-            <span className="text-sm font-bold text-slate-100">{brandName}</span>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            {user.rol !== 'superadmin' && (
-              <NotificationBell userId={user.id} light />
+            {brandLogoSrc ? (
+              <img src={brandLogoSrc} alt="" className="h-8 w-8 rounded-lg object-cover" />
+            ) : (
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-base"
+                style={{ background: 'linear-gradient(135deg, var(--brand-light), var(--brand-primary))' }}
+              >
+                <span>{brandEmoji}</span>
+              </div>
             )}
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ${rc.bg}`}>
-              {rc.label}
-            </span>
+            <span className="hidden text-sm font-bold text-slate-100 sm:inline">{brandName}</span>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2.5">
+            {user.rol !== 'superadmin' && <NotificationBell userId={user.id} light />}
+            <button
+              onClick={() => fotoInputRef.current?.click()}
+              title="Cambiar foto de perfil"
+              className="flex items-center gap-2.5 rounded-xl border border-slate-700 bg-slate-900/50 py-1 pl-1 pr-2 transition hover:bg-slate-700 sm:pr-3"
+            >
+              <span className="relative block h-9 w-9 shrink-0 overflow-hidden rounded-lg">
+                {fotoSrc ? (
+                  <img src={fotoSrc} alt="" className={`h-full w-full object-cover ${subiendoFoto ? 'opacity-50' : ''}`} />
+                ) : (
+                  <span
+                    className="flex h-full w-full items-center justify-center text-[12px] font-bold text-white"
+                    style={{ background: 'linear-gradient(135deg, #6366f1, #4c1d95)' }}
+                  >{initials}</span>
+                )}
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 ring-2 ring-slate-800">
+                  <Camera size={9} className="text-white" />
+                </span>
+              </span>
+              <span className="hidden text-left leading-tight sm:block">
+                <span className="block text-[13px] font-semibold text-slate-100">{user.nombre}</span>
+                <span className="block text-[11px] text-slate-400">{rc.label}</span>
+              </span>
+            </button>
           </div>
         </header>
+        <input ref={fotoInputRef} type="file" accept="image/*" className="hidden" onChange={onFotoSel} />
 
         <main className="flex-1 overflow-y-auto bg-slate-900">
           <div className="mx-auto max-w-7xl px-4 py-5 lg:px-6 lg:py-6">
