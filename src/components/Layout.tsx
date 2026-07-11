@@ -6,12 +6,13 @@ import type { Rol } from '../types';
 import {
   LayoutDashboard, ClipboardList, Users, Factory, Wrench,
   LogOut, Menu, X, Building2, MessageCircle,
-  FilePlus2, Ruler, CalendarDays, ListTodo,
+  FilePlus2, Ruler, CalendarDays, Settings2, ListTodo,
   Package, Radio, FileText, PackageSearch, KeyRound, Warehouse,
   UserCircle2, HeartHandshake, FolderOpen, Navigation, AlertTriangle,
-  TrendingUp, Bell, DollarSign, ClipboardCheck,
+  TrendingUp, Bell, DollarSign, ClipboardCheck, Sparkles, ShoppingCart,
 } from 'lucide-react';
 import { api } from '../services/api';
+import AiChat from './AiChat';
 
 type Notification = {
   id: number;
@@ -24,14 +25,44 @@ type Notification = {
 function NotificationBell({ userId, light }: { userId: number; light?: boolean }) {
   const [notis, setNotis] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try { return localStorage.getItem('notif_sound') !== 'off'; } catch { return true; }
+  });
   const ref = useRef<HTMLDivElement>(null);
+  const prevUnreadRef = useRef<number>(0);
+
+  const playBell = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const now = ctx.currentTime;
+      // Bell-like tone: two oscillators (fundamental + 3rd harmonic)
+      [[880, 0.35], [1320, 0.15]].forEach(([freq, gain]) => {
+        const osc = ctx.createOscillator();
+        const env = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq as number;
+        env.gain.setValueAtTime(gain as number, now);
+        env.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+        osc.connect(env);
+        env.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 1.2);
+      });
+    } catch { /* AudioContext unavailable */ }
+  };
 
   const fetchNotis = useCallback(async () => {
     try {
       const data = await api.getNotifications();
-      setNotis(data || []);
+      const list = data || [];
+      setNotis(list);
+      const unread = list.filter((n: Notification) => !n.leido_por.includes(userId)).length;
+      if (soundEnabled && unread > prevUnreadRef.current && prevUnreadRef.current >= 0) {
+        playBell();
+      }
+      prevUnreadRef.current = unread;
     } catch {/* ignore */}
-  }, []);
+  }, [userId, soundEnabled]);
 
   useEffect(() => {
     fetchNotis();
@@ -46,6 +77,13 @@ function NotificationBell({ userId, light }: { userId: number; light?: boolean }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    try { localStorage.setItem('notif_sound', next ? 'on' : 'off'); } catch {}
+    if (next) playBell();
+  };
 
   const unread = notis.filter(n => !n.leido_por.includes(userId)).length;
 
@@ -81,32 +119,41 @@ function NotificationBell({ userId, light }: { userId: number; light?: boolean }
       </button>
 
       {open && (
-        <div className="absolute left-0 top-10 z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
-            <span className="text-sm font-semibold text-slate-800">Notificaciones</span>
-            {unread > 0 && (
-              <button onClick={handleMarkAll} className="text-[11px] text-rose-500 hover:text-rose-600 font-medium">
-                Marcar todas como leídas
+        <div className="absolute right-0 top-10 z-50 w-80 max-w-[calc(100vw-1rem)] rounded-2xl border border-white/10 bg-[#0f172a] shadow-2xl overflow-hidden" style={{minWidth:"280px"}}>
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.08]">
+            <span className="text-sm font-semibold text-white">Notificaciones</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleSound}
+                title={soundEnabled ? 'Silenciar sonido' : 'Activar sonido'}
+                className={`text-[11px] flex items-center gap-1 px-1.5 py-0.5 rounded-md font-medium transition-colors ${soundEnabled ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+              >
+                {soundEnabled ? '🔔' : '🔕'}
               </button>
-            )}
+              {unread > 0 && (
+                <button onClick={handleMarkAll} className="text-[11px] text-rose-400 hover:text-rose-300 font-medium">
+                  Marcar todas
+                </button>
+              )}
+            </div>
           </div>
-          <div className="max-h-72 overflow-y-auto divide-y divide-slate-50">
+          <div className="max-h-80 overflow-y-auto divide-y divide-white/[0.04]">
             {notis.length === 0 ? (
-              <p className="py-8 text-center text-xs text-slate-400">Sin notificaciones</p>
+              <p className="py-8 text-center text-xs text-slate-500">Sin notificaciones</p>
             ) : notis.map(n => {
               const isUnread = !n.leido_por.includes(userId);
               return (
                 <div
                   key={n.id}
                   onClick={() => isUnread && handleMarkRead(n.id)}
-                  className={`flex gap-2.5 px-4 py-3 cursor-pointer transition-colors hover:bg-slate-50 ${isUnread ? 'bg-blue-50/60' : ''}`}
+                  className={`flex gap-2.5 px-4 py-3 cursor-pointer transition-colors hover:bg-white/[0.05] ${isUnread ? 'bg-indigo-500/10' : ''}`}
                 >
                   <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${TIPO_COLOR[n.tipo] || 'bg-slate-400'}`} />
                   <div className="min-w-0 flex-1">
-                    <p className={`text-[12px] leading-snug ${isUnread ? 'font-medium text-slate-800' : 'text-slate-500'}`}>
+                    <p className={`text-[12px] leading-snug ${isUnread ? 'font-semibold text-white' : 'text-slate-400'}`}>
                       {n.mensaje}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-slate-400">
+                    <p className="mt-0.5 text-[10px] text-slate-500">
                       {new Date(n.created_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
@@ -133,12 +180,42 @@ type NavSection = {
   items: NavItem[];
 };
 
+// ── MVP: ocultar módulos aún no listos para producción ──────────────
+// Cambiá MVP_MODE a false para volver a mostrar TODOS los módulos.
+const MVP_MODE = true;
+const MVP_HIDDEN = new Set<string>([
+  'gps', 'averias', 'post-venta', 'rrhh', 'permisos', 'insumos',
+  'reglas-materiales', 'comisiones', 'registro-trabajo', 'vendedores',
+]);
+function filterMvpSections(sections: NavSection[]): NavSection[] {
+  if (!MVP_MODE) return sections;
+  return sections
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((it) => {
+        const seg = it.to.split('/').filter(Boolean).pop() || '';
+        return !MVP_HIDDEN.has(seg);
+      }),
+    }))
+    .filter((s) => s.items.length > 0);
+}
+
 function getNavSections(rol: Rol): NavSection[] {
   switch (rol) {
     case 'jefe':
     case 'gerente': {
       const base = rol === 'gerente' ? '/gerente' : '/jefe';
       return [
+        {
+          heading: 'CONFIGURACIÓN',
+          items: [
+            { to: '/jefe/onboarding', label: 'Configuración Inicial', icon: <Sparkles size={16} className="text-indigo-400" /> },
+            { to: `${base}/configuracion`, label: "Mi Empresa", icon: <Settings2 size={16} /> },
+            { to: `${base}/ai-config`, label: 'APIs de IA', icon: <Sparkles size={16} className="text-purple-400" /> },
+              { to: `${base}/compras`, label: 'Compras Pendientes', icon: <ShoppingCart size={16} className="text-orange-400" /> },
+              { to: `${base}/catalogo`, label: 'Catalogo', icon: <Package size={16} className="text-indigo-400" /> },
+          ],
+        },
         {
           heading: 'OPERACIONES',
           items: [
@@ -163,8 +240,9 @@ function getNavSections(rol: Rol): NavSection[] {
           heading: 'EQUIPO',
           items: [
             { to: `${base}/usuarios`, label: 'Usuarios', icon: <Users size={16} /> },
-            { to: `${base}/productos`, label: 'Catálogo', icon: <Package size={16} /> },
             { to: `${base}/rrhh`, label: 'RRHH Docs', icon: <FolderOpen size={16} /> },
+            { to: `${base}/permisos`, label: 'Permisos / Vacaciones', icon: <CalendarDays size={16} /> },
+            { to: `${base}/insumos`, label: 'Solicitudes Insumos', icon: <PackageSearch size={16} /> },
             { to: `${base}/reglas-materiales`, label: 'Reglas Materiales', icon: <Wrench size={16} /> },
             { to: `${base}/comisiones`, label: 'Comisiones', icon: <DollarSign size={16} /> },
             { to: `${base}/registro-trabajo`, label: 'Registro de Trabajo', icon: <ClipboardCheck size={16} /> },
@@ -184,7 +262,8 @@ function getNavSections(rol: Rol): NavSection[] {
           heading: 'COORDINACIÓN',
           items: [
             { to: '/coordinador', label: 'Centro de Control', icon: <LayoutDashboard size={16} />, end: true },
-            { to: '/coordinador/agenda', label: 'Agenda', icon: <CalendarDays size={16} /> },
+            { to: '/coordinador/compras', label: 'Compras Pendientes', icon: <ShoppingCart size={16} className="text-orange-400" /> },
+              { to: '/coordinador/agenda', label: 'Agenda', icon: <CalendarDays size={16} /> },
             { to: '/coordinador/tareas', label: 'Tareas', icon: <ListTodo size={16} /> },
             { to: '/coordinador/gps', label: 'GPS en Vivo', icon: <Radio size={16} /> },
             { to: '/coordinador/ordenes', label: 'Órdenes', icon: <ClipboardList size={16} /> },
@@ -202,8 +281,10 @@ function getNavSections(rol: Rol): NavSection[] {
           heading: 'EQUIPO',
           items: [
             { to: '/coordinador/usuarios', label: 'Usuarios', icon: <Users size={16} /> },
-            { to: '/coordinador/productos', label: 'Catálogo', icon: <Package size={16} /> },
+            { to: '/coordinador/catalogo', label: 'Catalogo', icon: <Package size={16} /> },
+            { to: '/coordinador/insumos', label: 'Solicitudes Insumos', icon: <PackageSearch size={16} /> },
             { to: '/coordinador/rrhh', label: 'RRHH Docs', icon: <FolderOpen size={16} /> },
+            { to: '/coordinador/permisos', label: 'Permisos / Vacaciones', icon: <CalendarDays size={16} /> },
             { to: '/coordinador/registro-trabajo', label: 'Registro de Trabajo', icon: <ClipboardCheck size={16} /> },
           ],
         },
@@ -223,7 +304,8 @@ function getNavSections(rol: Rol): NavSection[] {
             { to: '/vendedor/nueva', label: 'Nueva Cotización', icon: <FilePlus2 size={16} /> },
             { to: '/vendedor/clientes', label: 'Mis Clientes', icon: <UserCircle2 size={16} /> },
             { to: '/vendedor/medidas', label: 'Toma de Medidas', icon: <Ruler size={16} /> },
-            { to: '/vendedor/productos', label: 'Catálogo', icon: <Package size={16} /> },
+            { to: '/vendedor/catalogo', label: 'Catalogo', icon: <Package size={16} /> },
+            { to: '/vendedor/compras', label: 'Compras Pendientes', icon: <ShoppingCart size={16} className="text-orange-400" /> },
           ],
         },
         {
@@ -247,6 +329,7 @@ function getNavSections(rol: Rol): NavSection[] {
           items: [
             { to: '/fabricante', label: 'Cola de Producción', icon: <Factory size={16} />, end: true },
             { to: '/fabricante/solicitudes', label: 'Mis Solicitudes', icon: <PackageSearch size={16} /> },
+
           ],
         },
         {
@@ -346,12 +429,17 @@ export default function Layout() {
 
   if (!user) return null;
 
-  const sections = getNavSections(user.rol);
+  const sections = filterMvpSections(getNavSections(user.rol));
   const rc = ROL_CONFIG[user.rol] || { label: user.rol, bg: 'bg-slate-500', color: 'text-slate-700' };
   const initials = (user.nombre || 'U').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
   const brandName = user.rol === 'superadmin' ? 'ConectaWork' : (tenant?.nombre || 'Taller');
   const brandSlogan = user.rol === 'superadmin' ? 'Panel de Administración' : (tenant?.branding?.slogan || 'Gestión de Taller');
   const brandEmoji = user.rol === 'superadmin' ? '⚡' : ((tenant?.branding as any)?.emoji || (tenant?.branding as any)?.logoEmoji || '🏭');
+  const brandLogo: string | null = user.rol === 'superadmin' ? null : ((tenant?.branding as any)?.logo_url || null);
+  // Make absolute URL if relative path
+  const brandLogoSrc = brandLogo
+    ? (brandLogo.startsWith('http') ? brandLogo : `${import.meta.env.VITE_API_URL || ''}${brandLogo}`)
+    : null;
   const changePasswordPath = `/${user.rol === 'superadmin' ? 'admin' : user.rol}/cambiar-password`;
 
   return (
@@ -372,10 +460,14 @@ export default function Layout() {
         {/* Brand section */}
         <div className="flex items-center gap-3 px-4 py-4 shrink-0">
           <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg shadow-lg"
-            style={{ background: 'linear-gradient(135deg, var(--brand-light), var(--brand-primary))' }}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl overflow-hidden shadow-lg"
+            style={{ background: brandLogoSrc ? '#1e293b' : 'linear-gradient(135deg, var(--brand-light), var(--brand-primary))' }}
           >
-            <span>{brandEmoji}</span>
+            {brandLogoSrc ? (
+              <img src={brandLogoSrc} alt={brandName} className="w-full h-full object-contain p-0.5" onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = brandEmoji; }} />
+            ) : (
+              <span className="text-lg">{brandEmoji}</span>
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[14px] font-bold text-white leading-tight">{brandName}</h1>
@@ -543,6 +635,7 @@ export default function Layout() {
             <Outlet />
           </div>
         </main>
+      <AiChat />
       </div>
     </div>
   );
