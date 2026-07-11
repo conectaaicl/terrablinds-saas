@@ -361,6 +361,7 @@ async def me(
         "tenant_id": tenant_id,
         "activo": current_user.activo,
         "foto_url": getattr(current_user, "foto_url", None),
+        "telefono": getattr(current_user, "telefono", None),
         "tenant_branding": branding,
         "tenant_nombre": tenant_nombre,
     }

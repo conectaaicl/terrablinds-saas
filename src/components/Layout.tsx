@@ -9,7 +9,7 @@ import {
   FilePlus2, Ruler, CalendarDays, Settings2, ListTodo,
   Package, Radio, FileText, PackageSearch, KeyRound, Warehouse,
   UserCircle2, HeartHandshake, FolderOpen, Navigation, AlertTriangle,
-  TrendingUp, Bell, DollarSign, ClipboardCheck, Sparkles, ShoppingCart, Camera,
+  TrendingUp, Bell, DollarSign, ClipboardCheck, Sparkles, ShoppingCart, Camera, Mail, Phone,
 } from 'lucide-react';
 import { api } from '../services/api';
 import AiChat from './AiChat';
@@ -456,6 +456,7 @@ export default function Layout() {
     e.target.value = '';
   };
   const fotoSrc = fotoUrl ? (fotoUrl.startsWith('http') ? fotoUrl : `${import.meta.env.VITE_API_URL || ''}${fotoUrl}`) : null;
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-slate-900">
@@ -641,29 +642,67 @@ export default function Layout() {
 
           <div className="ml-auto flex items-center gap-2.5">
             {user.rol !== 'superadmin' && <NotificationBell userId={user.id} light />}
-            <button
-              onClick={() => fotoInputRef.current?.click()}
-              title="Cambiar foto de perfil"
-              className="flex items-center gap-2.5 rounded-xl border border-slate-700 bg-slate-900/50 py-1 pl-1 pr-2 transition hover:bg-slate-700 sm:pr-3"
-            >
-              <span className="relative block h-9 w-9 shrink-0 overflow-hidden rounded-lg">
-                {fotoSrc ? (
-                  <img src={fotoSrc} alt="" className={`h-full w-full object-cover ${subiendoFoto ? 'opacity-50' : ''}`} />
-                ) : (
-                  <span
-                    className="flex h-full w-full items-center justify-center text-[12px] font-bold text-white"
-                    style={{ background: 'linear-gradient(135deg, #6366f1, #4c1d95)' }}
-                  >{initials}</span>
-                )}
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 ring-2 ring-slate-800">
-                  <Camera size={9} className="text-white" />
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(o => !o)}
+                title="Perfil"
+                className="flex items-center gap-2.5 rounded-xl border border-slate-700 bg-slate-900/50 py-1 pl-1 pr-2 transition hover:bg-slate-700 sm:pr-3"
+              >
+                <span className="relative block h-9 w-9 shrink-0 overflow-hidden rounded-lg">
+                  {fotoSrc ? (
+                    <img src={fotoSrc} alt="" className={`h-full w-full object-cover ${subiendoFoto ? 'opacity-50' : ''}`} />
+                  ) : (
+                    <span
+                      className="flex h-full w-full items-center justify-center text-[12px] font-bold text-white"
+                      style={{ background: 'linear-gradient(135deg, #6366f1, #4c1d95)' }}
+                    >{initials}</span>
+                  )}
+                  <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 ring-2 ring-slate-800">
+                    <Camera size={9} className="text-white" />
+                  </span>
                 </span>
-              </span>
-              <span className="hidden text-left leading-tight sm:block">
-                <span className="block text-[13px] font-semibold text-slate-100">{user.nombre}</span>
-                <span className="block text-[11px] text-slate-400">{rc.label}</span>
-              </span>
-            </button>
+                <span className="hidden text-left leading-tight sm:block">
+                  <span className="block text-[13px] font-semibold text-slate-100">{user.nombre}</span>
+                  <span className="block text-[11px] text-slate-400">{rc.label}</span>
+                </span>
+              </button>
+
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 top-12 z-50 w-64 overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 shadow-2xl">
+                    <div className="flex items-center gap-3 border-b border-slate-700 p-3">
+                      <span className="block h-11 w-11 shrink-0 overflow-hidden rounded-xl">
+                        {fotoSrc ? (
+                          <img src={fotoSrc} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366f1, #4c1d95)' }}>{initials}</span>
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-100">{user.nombre}</p>
+                        <p className="text-[11px] text-slate-400">{rc.label}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5 border-b border-slate-700 p-3">
+                      <div className="flex items-center gap-2 text-[12px] text-slate-300"><Mail size={13} className="shrink-0 text-slate-500" /> <span className="truncate">{user.email}</span></div>
+                      <div className="flex items-center gap-2 text-[12px] text-slate-300"><Phone size={13} className="shrink-0 text-slate-500" /> <span>{(user as any).telefono || 'Sin teléfono'}</span></div>
+                    </div>
+                    <div className="p-1.5">
+                      <button onClick={() => { setMenuOpen(false); fotoInputRef.current?.click(); }} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-slate-200 transition hover:bg-slate-700">
+                        <Camera size={15} className="text-slate-400" /> Cambiar foto
+                      </button>
+                      <NavLink to={changePasswordPath} onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-slate-200 transition hover:bg-slate-700">
+                        <KeyRound size={15} className="text-slate-400" /> Cambiar contraseña
+                      </NavLink>
+                      <button onClick={logout} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-rose-300 transition hover:bg-rose-500/10">
+                        <LogOut size={15} /> Cerrar sesión
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </header>
         <input ref={fotoInputRef} type="file" accept="image/*" className="hidden" onChange={onFotoSel} />
