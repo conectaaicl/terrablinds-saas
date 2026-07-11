@@ -263,7 +263,7 @@ function NuevaAveriaModal({
                 <select value={form.order_id} onChange={set('order_id')} className={field}>
                   <option value="">Sin OT asociada</option>
                   {orders.map((o: any) => (
-                    <option key={o.id} value={o.id}>#{o.numero_ot || o.id} — {o.cliente_nombre || 'Sin cliente'}</option>
+                    <option key={o.id} value={o.id}>#{o.numero || o.numero_ot || o.id} — {o.cliente_nombre || 'Sin cliente'}</option>
                   ))}
                 </select>
               </div>
@@ -333,7 +333,7 @@ export default function InstaladorAverias() {
 
   const { data: averias, loading, error, refetch } = useApi(() => api.getAverias());
   const { data: clients } = useApi(() => api.getClients());
-  const { data: orders } = useApi(() => api.getOrders());
+  const { data: orders } = useApi(() => (api as any).getMyOrders());
 
   const handleCreate = async (data: Record<string, any>) => {
     await api.createAveria(data);
