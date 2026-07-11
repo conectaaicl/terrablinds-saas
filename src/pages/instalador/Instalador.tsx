@@ -353,8 +353,9 @@ function MisTareasHoy() {
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${est.bg} ${est.color}`}>{est.label}</span>
                   </div>
                   <p className={`text-base font-bold text-slate-900 mt-0.5 ${t.estado === 'completada' ? 'line-through' : ''}`}>
-                    {t.cliente_nombre || t.titulo}
+                    {t.titulo}
                   </p>
+                  {t.cliente_nombre && <p className="text-xs text-slate-500 truncate">{t.cliente_nombre}</p>}
                 </div>
                 {/* Acciones */}
                 <div className="flex-shrink-0">
@@ -439,6 +440,7 @@ function MisTareasHoy() {
 // ═══════════════════════════════════════════════════════════════
 export function MisInstalaciones() {
   const { data: orders, loading, error, refetch } = useApi(() => api.getMyOrders());
+  const { data: tareasHist } = useApi(() => (api as any).getMisTareasHistorial());
 
   if (loading) return <Spinner />;
   if (error) return <ErrorMessage message={error} onRetry={refetch} />;
@@ -446,6 +448,7 @@ export function MisInstalaciones() {
   const all: any[] = orders || [];
   const activas = all.filter(o => ACTIVE_ESTADOS.includes(o.estado));
   const completadas = all.filter(o => DONE_ESTADOS.includes(o.estado));
+  const completadasCount = completadas.length + ((tareasHist as any[])?.length || 0);
 
   return (
     <div className="space-y-6">
@@ -478,7 +481,7 @@ export function MisInstalaciones() {
           <div className="flex items-center gap-2.5">
             <div className="rounded-lg bg-emerald-100 p-2"><CheckCircle2 size={18} className="text-emerald-600" /></div>
             <div>
-              <p className="text-xl font-bold text-slate-900">{completadas.length}</p>
+              <p className="text-xl font-bold text-slate-900">{completadasCount}</p>
               <p className="text-xs text-slate-500">Completadas</p>
             </div>
           </div>
@@ -588,7 +591,12 @@ export function DetalleInstalacion() {
   );
 
   const { execute: guardarFirma, loading: savingFirma } = useMutation(
-    (firma: string, firmante: any) => api.saveSignature(numId, { firma_data: firma, ...firmante })
+    (firma: string, firmante: any) => api.saveSignature(numId, {
+      firma_data: firma,
+      firmante_nombre: firmante.nombre,
+      firmante_rut: firmante.rut,
+      firmante_email: firmante.email,
+    })
   );
 
   // GPS automático cuando está en_camino o en_ruta
