@@ -184,8 +184,7 @@ type NavSection = {
 // Cambiá MVP_MODE a false para volver a mostrar TODOS los módulos.
 const MVP_MODE = true;
 const MVP_HIDDEN = new Set<string>([
-  'gps', 'averias', 'post-venta', 'rrhh', 'permisos', 'insumos',
-  'reglas-materiales', 'comisiones', 'registro-trabajo', 'vendedores',
+  'gps', 'insumos', 'reglas-materiales', 'registro-trabajo',
 ]);
 function filterMvpSections(sections: NavSection[]): NavSection[] {
   if (!MVP_MODE) return sections;
