@@ -67,6 +67,25 @@ async def mis_tareas(
     return [await _enrich(db, t, token_data.tenant_id) for t in tasks]
 
 
+@router.get("/historial", response_model=list[TaskResponse])
+async def mis_tareas_historial(
+    token_data: TokenData = Depends(require_roles(
+        "instalador", "fabricante", "vendedor", "coordinador", "jefe", "gerente"
+    )),
+    db: AsyncSession = Depends(get_db_for_tenant),
+):
+    """Historial: tareas completadas del usuario (todas las fechas, máx 200)."""
+    result = await db.execute(
+        select(DailyTask).where(
+            DailyTask.tenant_id == token_data.tenant_id,
+            DailyTask.asignado_a == token_data.user_id,
+            DailyTask.estado == "completada",
+        ).order_by(DailyTask.fecha_tarea.desc(), DailyTask.created_at.desc()).limit(200)
+    )
+    tasks = result.scalars().all()
+    return [await _enrich(db, t, token_data.tenant_id) for t in tasks]
+
+
 @router.post("/", response_model=TaskResponse, status_code=201)
 async def crear_tarea(
     data: TaskCreate,

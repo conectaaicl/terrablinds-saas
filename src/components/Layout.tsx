@@ -351,6 +351,7 @@ function getNavSections(rol: Rol): NavSection[] {
           heading: 'TRABAJO',
           items: [
             { to: '/instalador', label: 'Mis Instalaciones', icon: <Wrench size={16} />, end: true },
+            { to: '/instalador/historial', label: 'Historial', icon: <ClipboardCheck size={16} /> },
             { to: '/instalador/tracking', label: 'GPS / Tracking', icon: <Navigation size={16} /> },
             { to: '/instalador/averias', label: 'Averías / Fallas', icon: <AlertTriangle size={16} /> },
           ],

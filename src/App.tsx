@@ -18,7 +18,7 @@ import TomaMedidas from './pages/vendedor/TomaMedidas';
 import Chat from './pages/chat/Chat';
 import { ColaProduccion, DetalleTecnico } from './pages/fabricante/Fabricante';
 import MisSolicitudes from './pages/fabricante/MisSolicitudes';
-import { MisInstalaciones, DetalleInstalacion } from './pages/instalador/Instalador';
+import { MisInstalaciones, DetalleInstalacion, HistorialInstalador } from './pages/instalador/Instalador';
 import { AdminTalleres, AdminUsuarios } from './pages/admin/Admin';
 import {
   CoordinadorDashboard,
@@ -26,7 +26,6 @@ import {
   GestionTareas,
   MapaGPS,
 } from './pages/coordinador/Coordinador';
-import Productos from './pages/productos/Productos';
 import BodegasDashboard from './pages/bodegas/Bodegas';
 import BodegasInsumos from './pages/bodegas/BodegasInsumos';
 import Inventario from './pages/bodegas/Inventario';
@@ -34,6 +33,12 @@ import Clientes from './pages/clientes/Clientes';
 import PostVenta from './pages/post_venta/PostVenta';
 import RRHH from './pages/rrhh/RRHH';
 import SolicitudesRRHH from './pages/rrhh/SolicitudesRRHH';
+import TallerSettings from './pages/jefe/TallerSettings';
+import Onboarding from './pages/jefe/Onboarding';
+import { AIConfig } from './pages/jefe/AIConfig';
+import CatalogoAdmin from './pages/jefe/CatalogoAdmin';
+import { OTPrint } from './pages/shared/OTPrint';
+import { ComprasPendientes } from './pages/shared/ComprasPendientes';
 import ReglasMateriales from './pages/jefe/ReglasMateriales';
 import Comisiones from './pages/jefe/Comisiones';
 import MisComisiones from './pages/shared/MisComisiones';
@@ -95,7 +100,15 @@ function RoleGuard({ roles }: { roles: Rol[] }) {
 }
 
 function AppRoutes() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-900">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -111,6 +124,19 @@ function AppRoutes() {
   }
 
   const home = getHome(user.rol);
+  const changePwdPath = `/${user.rol === 'superadmin' ? 'admin' : user.rol}/cambiar-password`;
+
+  // Force password change on first login
+  if ((user as any).mustChangePassword) {
+    return (
+      <Routes>
+        <Route path="*" element={<Navigate to={changePwdPath} replace />} />
+        <Route element={<Layout />}>
+          <Route path={changePwdPath} element={<ChangePassword />} />
+        </Route>
+      </Routes>
+    );
+  }
 
   return (
     <Routes>
@@ -136,10 +162,16 @@ function AppRoutes() {
           <Route path="/jefe/cotizaciones/:id/imprimir" element={<CotizacionPrint />} />
           <Route path="/jefe/vendedores" element={<VendedoresStats />} />
           <Route path="/jefe/usuarios" element={<Usuarios />} />
-          <Route path="/jefe/productos" element={<Productos />} />
           <Route path="/jefe/clientes" element={<Clientes />} />
           <Route path="/jefe/post-venta" element={<PostVenta />} />
           <Route path="/jefe/rrhh" element={<RRHH />} />
+          <Route path="/jefe/insumos" element={<BodegasInsumos />} />
+          <Route path="/jefe/permisos" element={<SolicitudesRRHH />} />
+          <Route path="/jefe/configuracion" element={<TallerSettings />} />
+          <Route path="/jefe/onboarding" element={<Onboarding />} />
+          <Route path="/jefe/ai-config" element={<AIConfig />} />
+          <Route path="/jefe/compras" element={<ComprasPendientes />} />
+          <Route path="/jefe/catalogo" element={<CatalogoAdmin />} />
           <Route path="/jefe/reglas-materiales" element={<ReglasMateriales />} />
           <Route path="/jefe/averias" element={<JefeAverias />} />
           <Route path="/jefe/agenda" element={<AgendaSemanal />} />
@@ -162,10 +194,15 @@ function AppRoutes() {
           <Route path="/gerente/cotizaciones/:id/imprimir" element={<CotizacionPrint />} />
           <Route path="/gerente/vendedores" element={<VendedoresStats />} />
           <Route path="/gerente/usuarios" element={<Usuarios />} />
-          <Route path="/gerente/productos" element={<Productos />} />
           <Route path="/gerente/clientes" element={<Clientes />} />
           <Route path="/gerente/post-venta" element={<PostVenta />} />
           <Route path="/gerente/rrhh" element={<RRHH />} />
+          <Route path="/gerente/insumos" element={<BodegasInsumos />} />
+          <Route path="/gerente/permisos" element={<SolicitudesRRHH />} />
+          <Route path="/gerente/configuracion" element={<TallerSettings />} />
+          <Route path="/gerente/ai-config" element={<AIConfig />} />
+          <Route path="/gerente/compras" element={<ComprasPendientes />} />
+          <Route path="/gerente/catalogo" element={<CatalogoAdmin />} />
           <Route path="/gerente/reglas-materiales" element={<ReglasMateriales />} />
           <Route path="/gerente/averias" element={<JefeAverias />} />
           <Route path="/gerente/agenda" element={<AgendaSemanal />} />
@@ -180,6 +217,7 @@ function AppRoutes() {
       {/* ── COORDINADOR ── */}
       <Route element={<RoleGuard roles={['coordinador']} />}>
         <Route element={<Layout />}>
+          <Route path="/coordinador/compras" element={<ComprasPendientes />} />
           <Route path="/coordinador" element={<CoordinadorDashboard />} />
           <Route path="/coordinador/agenda" element={<AgendaSemanal />} />
           <Route path="/coordinador/tareas" element={<GestionTareas />} />
@@ -187,11 +225,13 @@ function AppRoutes() {
           <Route path="/coordinador/ordenes" element={<OrdenesLista />} />
           <Route path="/coordinador/ordenes/:id" element={<OrdenDetalle />} />
           <Route path="/coordinador/usuarios" element={<Usuarios />} />
-          <Route path="/coordinador/productos" element={<Productos />} />
+          <Route path="/coordinador/catalogo" element={<CatalogoAdmin />} />
           <Route path="/coordinador/clientes" element={<Clientes />} />
           <Route path="/coordinador/post-venta" element={<PostVenta />} />
           <Route path="/coordinador/averias" element={<JefeAverias />} />
           <Route path="/coordinador/rrhh" element={<RRHH />} />
+          <Route path="/coordinador/insumos" element={<BodegasInsumos />} />
+          <Route path="/coordinador/permisos" element={<SolicitudesRRHH />} />
           <Route path="/coordinador/registro-trabajo" element={<RegistroTrabajo />} />
           <Route path="/coordinador/cambiar-password" element={<ChangePassword />} />
         </Route>
@@ -200,13 +240,14 @@ function AppRoutes() {
       {/* ── VENDEDOR ── */}
       <Route element={<RoleGuard roles={['vendedor']} />}>
         <Route element={<Layout />}>
+          <Route path="/vendedor/compras" element={<ComprasPendientes />} />
           <Route path="/vendedor" element={<MisCotizaciones />} />
           <Route path="/vendedor/nueva" element={<NuevaCotizacion />} />
           <Route path="/vendedor/pedido/:id" element={<PedidoDetalle />} />
           <Route path="/vendedor/cotizacion/:id" element={<DetalleCotizacion />} />
           <Route path="/vendedor/cotizacion/:id/imprimir" element={<CotizacionPrint />} />
           <Route path="/vendedor/medidas" element={<TomaMedidas />} />
-          <Route path="/vendedor/productos" element={<Productos />} />
+          <Route path="/vendedor/catalogo" element={<CatalogoAdmin />} />
           <Route path="/vendedor/clientes" element={<Clientes />} />
           <Route path="/vendedor/permisos" element={<SolicitudesRRHH />} />
           <Route path="/vendedor/mis-comisiones" element={<MisComisiones />} />
@@ -220,6 +261,7 @@ function AppRoutes() {
         <Route element={<Layout />}>
           <Route path="/fabricante" element={<ColaProduccion />} />
           <Route path="/fabricante/solicitudes" element={<MisSolicitudes />} />
+          <Route path="/fabricante/rrhh" element={<RRHH />} />
           <Route path="/fabricante/permisos" element={<SolicitudesRRHH />} />
           <Route path="/fabricante/mis-comisiones" element={<MisComisiones />} />
           <Route path="/fabricante/mis-ganancias" element={<MisGanancias />} />
@@ -232,6 +274,7 @@ function AppRoutes() {
       <Route element={<RoleGuard roles={['instalador']} />}>
         <Route element={<Layout />}>
           <Route path="/instalador" element={<MisInstalaciones />} />
+          <Route path="/instalador/historial" element={<HistorialInstalador />} />
           <Route path="/instalador/tracking" element={<InstaladorTracking />} />
           <Route path="/instalador/averias" element={<InstaladorAverias />} />
           <Route path="/instalador/permisos" element={<SolicitudesRRHH />} />
@@ -252,6 +295,11 @@ function AppRoutes() {
           <Route path="/bodegas/inventario" element={<Inventario />} />
           <Route path="/bodegas/cambiar-password" element={<ChangePassword />} />
         </Route>
+      </Route>
+
+      {/* ── OT PRINT (all authenticated roles, no Layout) ── */}
+      <Route element={<RoleGuard roles={['superadmin','jefe','gerente','coordinador','vendedor','fabricante','instalador','bodegas']} />}>
+        <Route path="/print/ot/:id" element={<OTPrint />} />
       </Route>
 
       {/* ── CHAT GLOBAL ── */}

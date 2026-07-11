@@ -13,7 +13,7 @@ import FirmaDigital from '../../components/FirmaDigital';
 import {
   Wrench, ChevronRight, ArrowLeft, MapPin,
   CheckCircle2, AlertTriangle, Clock, User, Ruler, Palette,
-  Camera, Navigation, Upload, Loader2, ExternalLink,
+  Camera, Navigation, Upload, Loader2, ExternalLink, FileText,
   ListTodo, WifiOff, PenLine,
   RefreshCw, Package, Phone,
 } from 'lucide-react';
@@ -94,6 +94,7 @@ function FotosInstalacion({ orderId }: { orderId: number }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [tipoFoto, setTipoFoto] = useState<'antes' | 'durante' | 'despues' | 'otro'>('durante');
 
   const { data: fotos, loading, refetch } = useApi(() => api.getOrderPhotos(orderId), [orderId]);
   const fotoList: any[] = fotos || [];
@@ -104,7 +105,7 @@ function FotosInstalacion({ orderId }: { orderId: number }) {
     setUploadError('');
     setUploading(true);
     try {
-      await api.uploadPhoto(orderId, file, 'durante');
+      await api.uploadPhoto(orderId, file, tipoFoto);
       refetch();
     } catch (err: any) {
       setUploadError(err.message || 'Error al subir foto');
@@ -114,11 +115,20 @@ function FotosInstalacion({ orderId }: { orderId: number }) {
     }
   };
 
-  if (loading) return <Spinner />;
+  const TIPO_CFG = {
+    antes:   { label: 'Antes',    color: 'bg-slate-100 text-slate-600 border-slate-200' },
+    durante: { label: 'Durante',  color: 'bg-blue-50  text-blue-600  border-blue-200'  },
+    despues: { label: 'Después',  color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    otro:    { label: 'Otro',     color: 'bg-slate-100 text-slate-500 border-slate-200' },
+  } as const;
+
+  const byTipo = (tipo: string) => fotoList.filter(f => f.tipo === tipo);
+
+  if (loading) return null;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+      <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
           <Camera size={16} /> Fotos ({fotoList.length}/10)
         </h2>
@@ -126,35 +136,55 @@ function FotosInstalacion({ orderId }: { orderId: number }) {
           <label className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100">
             {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
             {uploading ? 'Subiendo...' : 'Agregar foto'}
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleFile}
-              disabled={uploading}
-            />
+            <input ref={fileRef} type="file" accept="image/*" capture="environment"
+              className="hidden" onChange={handleFile} disabled={uploading} />
           </label>
         )}
       </div>
-      {uploadError && (
-        <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{uploadError}</p>
+
+      {/* Tipo selector */}
+      {fotoList.length < 10 && (
+        <div className="flex gap-2">
+          {(['antes', 'durante', 'despues', 'otro'] as const).map(t => (
+            <button key={t} type="button" onClick={() => setTipoFoto(t)}
+              className={`flex-1 rounded-lg border py-1.5 text-xs font-semibold transition ${
+                tipoFoto === t ? TIPO_CFG[t].color + ' ring-1 ring-offset-1 ring-current' : 'border-slate-200 text-slate-400 hover:bg-slate-50'
+              }`}>
+              {TIPO_CFG[t].label}
+            </button>
+          ))}
+        </div>
       )}
+
+      {uploadError && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{uploadError}</p>}
+
       {fotoList.length === 0 ? (
         <div className="rounded-lg border-2 border-dashed border-slate-200 p-6 text-center">
           <Camera size={22} className="mx-auto text-slate-300" />
-          <p className="mt-2 text-xs text-slate-400">Agrega fotos antes y después de la instalación</p>
+          <p className="mt-2 text-xs text-slate-400">Selecciona el tipo y agrega fotos antes/durante/después</p>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
-          {fotoList.map((f: any) => (
-            <a key={f.id} href={`${API_URL}${f.url}`} target="_blank" rel="noopener noreferrer"
-              className="aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-              <img src={`${API_URL}${f.url}`} alt="Foto instalación"
-                className="h-full w-full object-cover transition hover:opacity-90" />
-            </a>
-          ))}
+        <div className="space-y-3">
+          {(['antes', 'durante', 'despues', 'otro'] as const).map(t => {
+            const list = byTipo(t);
+            if (list.length === 0) return null;
+            return (
+              <div key={t}>
+                <p className={`mb-1.5 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${TIPO_CFG[t].color}`}>
+                  {TIPO_CFG[t].label} ({list.length})
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {list.map((f: any) => (
+                    <a key={f.id} href={`${API_URL}${f.url}`} target="_blank" rel="noopener noreferrer"
+                      className="aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                      <img src={`${API_URL}${f.url}`} alt="Foto instalación"
+                        className="h-full w-full object-cover transition hover:opacity-90" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -227,6 +257,53 @@ function ChecklistInstalacion({ orderId }: { orderId: number }) {
           Checklist completo — puedes cerrar la OT con firma del cliente
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Notas de Cierre ─────────────────────────────────────────
+function NotasCierreSection({ orderId, initialNotas }: { orderId: number; initialNotas?: string }) {
+  const [notas, setNotas] = useState(initialNotas || '');
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const save = async (text: string) => {
+    setSaving(true);
+    try {
+      await api.updateNotasCierre(orderId, text);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch { /* ignore */ }
+    finally { setSaving(false); }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const v = e.target.value;
+    setNotas(v);
+    setSaved(false);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => save(v), 1500);
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+          <FileText size={16} /> Descripción del trabajo
+        </h2>
+        <span className={`text-[11px] font-medium transition-all ${saved ? 'text-emerald-600' : saving ? 'text-slate-400' : 'text-transparent'}`}>
+          {saving ? 'Guardando...' : '✓ Guardado'}
+        </span>
+      </div>
+      <textarea
+        value={notas}
+        onChange={handleChange}
+        rows={4}
+        placeholder="Describe brevemente qué se realizó: instalación de cortinas roller en dormitorio, se verificó funcionamiento, cliente conforme..."
+        className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-200 resize-none"
+      />
+      <p className="mt-1.5 text-[11px] text-slate-400">Se guarda automáticamente mientras escribes</p>
     </div>
   );
 }
@@ -458,17 +535,22 @@ export function MisInstalaciones() {
           <div className="space-y-2">
             {completadas.map(o => (
               <Link key={o.id} to={`/instalador/${o.id}`}
-                className="flex items-center justify-between rounded-xl border border-slate-200 border-l-4 border-l-emerald-400 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
-                    <CheckCircle2 size={17} className="text-emerald-600" />
+                className="block rounded-xl border border-slate-200 border-l-4 border-l-emerald-400 bg-white p-4 shadow-sm transition hover:shadow-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
+                      <CheckCircle2 size={17} className="text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">OT #{o.numero}</p>
+                      <p className="text-xs text-slate-500">{o.cliente_nombre || '—'}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-800">OT #{o.numero}</p>
-                    <p className="text-xs text-slate-500">{o.cliente_nombre || '—'} · Cerrada</p>
-                  </div>
+                  <ChevronRight size={15} className="text-slate-300" />
                 </div>
-                <ChevronRight size={15} className="text-slate-300" />
+                {o.notas_cierre && (
+                  <p className="mt-2 ml-13 text-xs text-slate-500 italic line-clamp-1">"{o.notas_cierre}"</p>
+                )}
               </Link>
             ))}
           </div>
@@ -539,8 +621,8 @@ export function DetalleInstalacion() {
   if (!orden) return <div className="py-20 text-center text-slate-400">Instalación no encontrada</div>;
 
   const cfg = ESTADO_CONFIG[orden.estado] || ESTADO_CONFIG.instalacion_programada;
-  const mostrarFotos = ['instalando', 'instalacion_completada', 'cerrada', 'cerrado',
-    'en_instalacion', 'pendiente_firma'].includes(orden.estado);
+  const mostrarFotos = ['instalacion_programada', 'agendado', 'instalando', 'instalacion_completada',
+    'cerrada', 'cerrado', 'en_instalacion', 'pendiente_firma', 'en_camino', 'en_ruta'].includes(orden.estado);
   const mostrarFirma = ['instalacion_completada', 'pendiente_firma'].includes(orden.estado) && !firmaSaved;
 
   return (
@@ -628,6 +710,9 @@ export function DetalleInstalacion() {
       )}
 
       {/* Fotos */}
+      {mostrarFotos && (
+        <NotasCierreSection orderId={numId} initialNotas={orden.notas_cierre} />
+      )}
       {mostrarFotos && <FotosInstalacion orderId={numId} />}
 
       {/* Firma digital */}
@@ -753,6 +838,99 @@ export function DetalleInstalacion() {
           <CheckCircle2 size={28} className="mx-auto text-emerald-500" />
           <p className="mt-2 text-sm font-bold text-emerald-800">OT Cerrada Exitosamente</p>
           <p className="text-xs text-emerald-600">Trabajo completo</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ─── HISTORIAL (solo lectura + agregar notas) ────────────────
+export function HistorialInstalador() {
+  const { data: orders } = useApi(() => api.getMyOrders());
+  const { data: tareas, loading, refetch } = useApi(() => (api as any).getMisTareasHistorial());
+  const cerradas: any[] = (orders || []).filter((o: any) => DONE_ESTADOS.includes(o.estado));
+  const hist: any[] = tareas || [];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Historial</h1>
+        <p className="text-sm text-slate-500">Todo lo que has completado. Es solo lectura, pero puedes agregar notas.</p>
+      </div>
+
+      <div>
+        <h2 className="mb-2 text-sm font-bold text-slate-700">Instalaciones cerradas ({cerradas.length})</h2>
+        <div className="space-y-2">
+          {cerradas.length === 0 && <p className="text-sm text-slate-400">Aún no hay instalaciones cerradas.</p>}
+          {cerradas.map((o: any) => (
+            <Link key={o.id} to={`/instalador/${o.id}`}
+              className="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
+                    <CheckCircle2 size={17} className="text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">OT #{o.numero}</p>
+                    {o.cliente_nombre && <p className="text-xs text-slate-500">{o.cliente_nombre}</p>}
+                  </div>
+                </div>
+                <ChevronRight size={15} className="text-slate-300" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-2 text-sm font-bold text-slate-700">Tareas completadas ({hist.length})</h2>
+        {loading ? <Spinner /> : (
+          <div className="space-y-2">
+            {hist.length === 0 && <p className="text-sm text-slate-400">Aún no hay tareas completadas.</p>}
+            {hist.map((t: any) => <TareaHistorialItem key={t.id} tarea={t} onSaved={refetch} />)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TareaHistorialItem({ tarea, onSaved }: { tarea: any; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [nota, setNota] = useState(tarea.notas_cierre || '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const guardar = async () => {
+    setSaving(true);
+    try { await api.updateTask(tarea.id, { notas_cierre: nota }); setSaved(true); onSaved(); } catch { /* */ }
+    setSaving(false);
+  };
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100">
+            <CheckCircle2 size={16} className="text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-800">{tarea.titulo}</p>
+            <p className="text-xs text-slate-500">{tarea.fecha_tarea}{tarea.cliente_nombre ? ` · ${tarea.cliente_nombre}` : ''}</p>
+          </div>
+        </div>
+        <ChevronRight size={15} className={`text-slate-300 transition ${open ? 'rotate-90' : ''}`} />
+      </button>
+      {open && (
+        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+          {tarea.descripcion && <p className="text-xs text-slate-600">{tarea.descripcion}</p>}
+          <label className="block text-[11px] font-semibold uppercase text-slate-500">Nota (si faltó algo)</label>
+          <textarea value={nota} onChange={e => { setNota(e.target.value); setSaved(false); }} rows={3}
+            className="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-700"
+            placeholder="Deja registrado algo que faltó o cualquier detalle…" />
+          <button onClick={guardar} disabled={saving}
+            className="rounded-lg bg-violet-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-violet-600 disabled:opacity-60">
+            {saving ? 'Guardando…' : saved ? '✓ Guardado' : 'Guardar nota'}
+          </button>
         </div>
       )}
     </div>

@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import TokenData, require_roles
 from app.auth.router import limiter
 from app.dependencies import get_db_for_tenant
+from app.services.whatsapp import send_text
 from app.models.attachment import DigitalSignature
 from app.models.user import User
 from app.orders.schemas import (
@@ -22,6 +23,7 @@ from app.orders.schemas import (
 )
 from app.orders.service import OrderService
 from app.comisiones.service import generar_comisiones_orden
+from app.notifications.service import NotificationService
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -57,6 +59,7 @@ def _order_to_response(o) -> OrderResponse:
         cliente_id=o.cliente_id,
         cliente_nombre=o.client.nombre if o.client else None,
         cliente_direccion=o.client.direccion if o.client else None,
+        cliente_telefono=o.client.telefono if o.client else None,
         vendedor_id=o.vendedor_id,
         vendedor_nombre=o.vendedor.nombre if o.vendedor else None,
         fabricante_id=o.fabricante_id,
@@ -75,6 +78,8 @@ def _order_to_response(o) -> OrderResponse:
         tracking_activo=getattr(o, "tracking_activo", False),
         garantia_meses=getattr(o, "garantia_meses", None),
         fecha_instalacion=o.fecha_instalacion.isoformat() if getattr(o, "fecha_instalacion", None) else None,
+        notas_instalacion=getattr(o, "notas_instalacion", None),
+        notas_cierre=getattr(o, "notas_cierre", None),
     )
 
 
@@ -145,6 +150,44 @@ async def change_estado(
         role=token_data.role,
     )
     await generar_comisiones_orden(db, order, data.estado)
+
+    # Automatic flow notifications
+    try:
+        noti_svc = NotificationService(db)
+        num = order.numero
+        if data.estado == 'listo_para_instalar':
+            await noti_svc.create_system_notification(
+                token_data.tenant_id,
+                f"OT #{num} lista para instalar — coordinador/jefe asignar fecha",
+                "exito",
+            )
+        elif data.estado == 'en_fabricacion':
+            await noti_svc.create_system_notification(
+                token_data.tenant_id,
+                f"OT #{num} en fabricacion",
+                "info",
+            )
+        elif data.estado == 'instalacion_programada':
+            await noti_svc.create_system_notification(
+                token_data.tenant_id,
+                f"OT #{num} programada para instalacion — instalador notificado",
+                "info",
+            )
+        elif data.estado == 'instalado':
+            await noti_svc.create_system_notification(
+                token_data.tenant_id,
+                f"OT #{num} instalada exitosamente",
+                "exito",
+            )
+        elif data.estado == 'problema':
+            await noti_svc.create_system_notification(
+                token_data.tenant_id,
+                f"OT #{num} reporta un problema — revisar",
+                "alerta",
+            )
+    except Exception:
+        pass  # never block the main flow
+
     await db.refresh(order, ["client", "vendedor", "fabricante", "instalador", "historial"])
     return _order_to_response(order)
 
@@ -153,6 +196,7 @@ async def change_estado(
 async def assign_fabricante(
     order_id: int,
     data: AssignRequest,
+    background: BackgroundTasks,
     token_data: TokenData = Depends(require_roles("jefe", "gerente", "coordinador")),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
@@ -165,7 +209,31 @@ async def assign_fabricante(
         tenant_id=token_data.tenant_id,
     )
     await db.refresh(order, ["client", "vendedor", "fabricante", "instalador", "historial"])
+    await _notify_fab_wa(db, order, data.usuario_id, token_data.tenant_id, background)
     return _order_to_response(order)
+
+
+async def _notify_fab_wa(db, order, usuario_id, tenant_id, background: BackgroundTasks) -> None:
+    """Avisa por WhatsApp al fabricante asignado. Best-effort."""
+    if not usuario_id:
+        return
+    try:
+        row = (await db.execute(
+            text("SELECT nombre, telefono FROM users WHERE id = :id"), {"id": usuario_id}
+        )).fetchone()
+    except Exception:
+        return
+    phone = getattr(row, "telefono", None) if row else None
+    if not phone:
+        return
+    cli = getattr(order, "client", None)
+    lines = ["\U0001F3ED *Nueva orden a fabricación*", f"\n\U0001F4CB OT #{order.numero}"]
+    if cli and getattr(cli, "nombre", None):
+        lines.append(f"\U0001F464 Cliente: {cli.nombre}")
+    if cli and getattr(cli, "direccion", None):
+        lines.append(f"\U0001F4CD {cli.direccion}")
+    lines.append("\nVer en working.conectaai.cl")
+    background.add_task(send_text, tenant_id, phone, "\n".join(lines))
 
 
 @router.post("/{order_id}/assign-instalador", response_model=OrderResponse)
@@ -304,11 +372,42 @@ async def update_subestado(
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(404, "Orden no encontrada")
-    allowed = {"en_corte", "en_armado", "listo", ""}
+    allowed = {"en_corte", "en_armado", "listo", "falta_materiales", "en_espera_materiales", ""}
     if data.subestado not in allowed:
         raise HTTPException(400, f"subestado inválido: {data.subestado}")
+
+    prev_subestado = order.produccion_subestado
     order.produccion_subestado = data.subestado or None
     await db.commit()
+
+    # Notify all tenant users when material shortage is flagged
+    if data.subestado == "falta_materiales" and prev_subestado != "falta_materiales":
+        try:
+            noti_svc = NotificationService(db)
+            await noti_svc.create_system_notification(
+                token_data.tenant_id,
+                f"OT #{order.numero}: falta de materiales — se necesita compra urgente",
+                "alerta",
+            )
+            # Auto-create compra_pendiente
+            await db.execute(
+                __import__("sqlalchemy").text("""
+                    INSERT INTO compra_pendiente
+                      (tenant_id, order_id, order_numero, descripcion_materiales, prioridad, estado, creado_por_nombre, created_at, updated_at)
+                    VALUES (:tid, :oid, :onum, :desc, 'urgente', 'pendiente', :nombre, NOW(), NOW())
+                """),
+                {
+                    "tid": token_data.tenant_id,
+                    "oid": order.id,
+                    "onum": order.numero,
+                    "desc": f"OT #{order.numero} reporta falta de materiales",
+                    "nombre": "Sistema (auto)",
+                }
+            )
+            await db.commit()
+        except Exception:
+            pass
+
     return {"ok": True, "subestado": order.produccion_subestado}
 
 
@@ -337,3 +436,23 @@ async def update_garantia(
         "garantia_meses": order.garantia_meses,
         "fecha_instalacion": order.fecha_instalacion.isoformat() if order.fecha_instalacion else None,
     }
+
+
+@router.patch('/{order_id}/notas-cierre', status_code=200)
+async def update_notas_cierre(
+    order_id: int,
+    data: dict,
+    token_data: TokenData = Depends(require_roles('instalador', 'jefe', 'gerente', 'coordinador')),
+    db: AsyncSession = Depends(get_db_for_tenant),
+):
+    from app.models.order import Order as _Order
+    from pydantic import BaseModel
+    result = await db.execute(
+        select(_Order).where(_Order.id == order_id, _Order.tenant_id == token_data.tenant_id)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, 'Orden no encontrada')
+    order.notas_cierre = (data.get('notas_cierre') or '').strip() or None
+    await db.commit()
+    return {'ok': True, 'notas_cierre': order.notas_cierre}
