@@ -572,6 +572,43 @@ export function MisInstalaciones() {
 
 
 // ═══════════════════════════════════════════════════════════════
+const INSTALL_STEPS = ['Programada', 'En camino', 'Instalando', 'Completada', 'Firma', 'Cerrada'];
+function stepIndexFor(estado: string, firmaSaved: boolean): number {
+  if (['cerrada', 'cerrado'].includes(estado)) return 5;
+  if (['instalacion_completada', 'pendiente_firma'].includes(estado)) return firmaSaved ? 4 : 3;
+  if (['instalando', 'en_instalacion'].includes(estado)) return 2;
+  if (['en_camino', 'en_ruta'].includes(estado)) return 1;
+  return 0;
+}
+function InstallStepper({ estado, firmaSaved }: { estado: string; firmaSaved: boolean }) {
+  const cur = stepIndexFor(estado, firmaSaved);
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center">
+        {INSTALL_STEPS.map((label, i) => {
+          const done = i < cur;
+          const current = i === cur;
+          return (
+            <div key={label} className={i < INSTALL_STEPS.length - 1 ? 'flex flex-1 items-center' : 'flex items-center'}>
+              <div
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                  done ? 'bg-emerald-500 text-white' : current ? 'bg-violet-500 text-white ring-4 ring-violet-100' : 'border-2 border-slate-200 bg-white text-slate-400'
+                }`}
+              >
+                {done ? '\u2713' : i + 1}
+              </div>
+              {i < INSTALL_STEPS.length - 1 && <div className={`h-0.5 flex-1 ${i < cur ? 'bg-emerald-500' : 'bg-slate-200'}`} />}
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2.5 text-center text-[13px] font-bold text-slate-800">
+        Paso {cur + 1} de {INSTALL_STEPS.length} &middot; {INSTALL_STEPS[cur]}
+      </p>
+    </div>
+  );
+}
+
 // DETALLE INSTALACIÓN (con GPS + Firma)
 // ═══════════════════════════════════════════════════════════════
 export function DetalleInstalacion() {
@@ -639,6 +676,8 @@ export function DetalleInstalacion() {
         className="flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800">
         <ArrowLeft size={15} /> Volver
       </button>
+
+      <InstallStepper estado={orden.estado} firmaSaved={firmaSaved} />
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>

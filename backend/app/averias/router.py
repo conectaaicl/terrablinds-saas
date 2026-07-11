@@ -26,8 +26,8 @@ from app.models.user import User
 
 router = APIRouter(prefix="/averias", tags=["averias"])
 
-ROLES_READ = ["jefe", "gerente", "coordinador", "instalador", "superadmin"]
-ROLES_WRITE = ["jefe", "gerente", "coordinador", "instalador", "superadmin"]
+ROLES_READ = ["jefe", "gerente", "coordinador", "instalador", "vendedor", "fabricante", "superadmin"]
+ROLES_WRITE = ["jefe", "gerente", "coordinador", "instalador", "vendedor", "fabricante", "superadmin"]
 ROLES_MANAGE = ["jefe", "gerente", "coordinador", "superadmin"]
 
 TIPOS_SERVICIO = [

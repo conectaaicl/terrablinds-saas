@@ -304,6 +304,7 @@ function getNavSections(rol: Rol): NavSection[] {
             { to: '/vendedor/clientes', label: 'Mis Clientes', icon: <UserCircle2 size={16} /> },
             { to: '/vendedor/medidas', label: 'Toma de Medidas', icon: <Ruler size={16} /> },
             { to: '/vendedor/catalogo', label: 'Catalogo', icon: <Package size={16} /> },
+            { to: '/vendedor/averias', label: 'Averías / Fallas', icon: <AlertTriangle size={16} /> },
             { to: '/vendedor/compras', label: 'Compras Pendientes', icon: <ShoppingCart size={16} className="text-orange-400" /> },
           ],
         },
@@ -329,6 +330,7 @@ function getNavSections(rol: Rol): NavSection[] {
             { to: '/fabricante', label: 'Cola de Producción', icon: <Factory size={16} />, end: true },
             { to: '/fabricante/historial', label: 'Historial', icon: <ClipboardCheck size={16} /> },
             { to: '/fabricante/solicitudes', label: 'Mis Solicitudes', icon: <PackageSearch size={16} /> },
+            { to: '/fabricante/averias', label: 'Averías / Fallas', icon: <AlertTriangle size={16} /> },
 
           ],
         },

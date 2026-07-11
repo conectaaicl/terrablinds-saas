@@ -242,6 +242,7 @@ function AppRoutes() {
         <Route element={<Layout />}>
           <Route path="/vendedor/compras" element={<ComprasPendientes />} />
           <Route path="/vendedor" element={<MisCotizaciones />} />
+          <Route path="/vendedor/averias" element={<InstaladorAverias />} />
           <Route path="/vendedor/nueva" element={<NuevaCotizacion />} />
           <Route path="/vendedor/pedido/:id" element={<PedidoDetalle />} />
           <Route path="/vendedor/cotizacion/:id" element={<DetalleCotizacion />} />
@@ -260,6 +261,7 @@ function AppRoutes() {
       <Route element={<RoleGuard roles={['fabricante']} />}>
         <Route element={<Layout />}>
           <Route path="/fabricante" element={<ColaProduccion />} />
+          <Route path="/fabricante/averias" element={<InstaladorAverias />} />
           <Route path="/fabricante/historial" element={<HistorialProduccion />} />
           <Route path="/fabricante/solicitudes" element={<MisSolicitudes />} />
           <Route path="/fabricante/rrhh" element={<RRHH />} />
