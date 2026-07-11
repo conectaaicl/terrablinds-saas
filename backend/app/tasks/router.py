@@ -10,7 +10,7 @@ Tareas Diarias — Asignación de trabajo por día.
 from datetime import date, datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +18,7 @@ from app.auth.dependencies import TokenData, require_roles
 from app.dependencies import get_db_for_tenant
 from app.models.task import DailyTask
 from app.tasks.schemas import TaskCreate, TaskResponse, TaskUpdate
+from app.services.whatsapp import send_text
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -69,10 +70,11 @@ async def mis_tareas(
 @router.post("/", response_model=TaskResponse, status_code=201)
 async def crear_tarea(
     data: TaskCreate,
+    background: BackgroundTasks,
     token_data: TokenData = Depends(require_roles("jefe", "gerente", "coordinador", "superadmin")),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
-    """Crea una tarea y la asigna a un trabajador."""
+    """Crea una tarea y la asigna a un trabajador. Notifica por WhatsApp al instalador."""
     task = DailyTask(
         tenant_id=token_data.tenant_id,
         asignado_por=token_data.user_id,
@@ -81,6 +83,7 @@ async def crear_tarea(
     db.add(task)
     await db.commit()
     await db.refresh(task)
+    await _notify_wa(db, task, token_data.tenant_id, background)
     return await _enrich(db, task, token_data.tenant_id)
 
 
@@ -125,6 +128,47 @@ async def cancelar_tarea(
     task = await _get_or_404(db, task_id, token_data.tenant_id)
     task.estado = "cancelada"
     await db.commit()
+
+
+# ─── notificación WhatsApp ────────────────────────────────────
+
+def _build_task_msg(t) -> str:
+    lines = ["\U0001F527 *Nueva tarea asignada*"]
+    if t.titulo:
+        lines.append(f"\n\U0001F4CB {t.titulo}")
+    if getattr(t, "cliente_nombre", None):
+        lines.append(f"\U0001F464 Cliente: {t.cliente_nombre}")
+    if getattr(t, "direccion", None):
+        lines.append(f"\U0001F4CD {t.direccion}")
+    try:
+        fecha = t.fecha_tarea.strftime("%d-%m-%Y") if t.fecha_tarea else ""
+    except Exception:
+        fecha = ""
+    hora = (getattr(t, "hora", None) or "").strip()
+    cuando = (fecha + (f" · {hora}" if hora else "")).strip()
+    if cuando:
+        lines.append(f"\U0001F4C5 {cuando}")
+    if getattr(t, "descripcion", None):
+        lines.append(f"\U0001F4DD {t.descripcion}")
+    lines.append("\nVer en working.conectaai.cl")
+    return "\n".join(lines)
+
+
+async def _notify_wa(db: AsyncSession, t: DailyTask, tenant_id: str, background: BackgroundTasks) -> None:
+    """Envía WhatsApp al instalador asignado. Best-effort: nunca rompe la request."""
+    if not getattr(t, "asignado_a", None):
+        return
+    try:
+        row = (await db.execute(
+            text("SELECT nombre, telefono FROM users WHERE id = :id"),
+            {"id": t.asignado_a},
+        )).fetchone()
+    except Exception:
+        return
+    phone = getattr(row, "telefono", None) if row else None
+    if not phone:
+        return
+    background.add_task(send_text, tenant_id, phone, _build_task_msg(t))
 
 
 # ─── helpers ──────────────────────────────────────────────────
@@ -175,4 +219,10 @@ async def _enrich(db: AsyncSession, t: DailyTask, tenant_id: str) -> TaskRespons
         vendedor_nombre=t.vendedor_nombre,
         items=t.items,
         observaciones=t.observaciones,
+        empresa_cliente=t.empresa_cliente,
+        cliente_email=t.cliente_email,
+        restriccion_horaria=t.restriccion_horaria,
+        nota_especial=t.nota_especial,
+        tracking_token=t.tracking_token if hasattr(t, 'tracking_token') else None,
+        tracking_activo=t.tracking_activo if hasattr(t, 'tracking_activo') else False,
     )

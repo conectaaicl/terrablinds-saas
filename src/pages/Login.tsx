@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
@@ -42,6 +42,30 @@ export default function Login() {
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // ── PWA: instalar app ──
+  const [pwaVisible, setPwaVisible] = useState(false);
+  const [showIosHelp, setShowIosHelp] = useState(false);
+  const isIOS = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
+  useEffect(() => {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    if (standalone) return;
+    if ((window as any).__pwaPrompt || isIOS) setPwaVisible(true);
+    const onAvail = () => setPwaVisible(true);
+    window.addEventListener('pwa-available', onAvail);
+    return () => window.removeEventListener('pwa-available', onAvail);
+  }, [isIOS]);
+  const installPwa = async () => {
+    const p = (window as any).__pwaPrompt;
+    if (p) {
+      p.prompt();
+      try { await p.userChoice; } catch { /* */ }
+      (window as any).__pwaPrompt = null;
+      setPwaVisible(false);
+    } else if (isIOS) {
+      setShowIosHelp(true);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -285,6 +309,25 @@ export default function Login() {
               </div>
             </form>
           </div>
+
+          {pwaVisible && (
+            <div style={{ marginTop: '20px' }}>
+              <button type="button" onClick={installPwa} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                width: '100%', padding: '12px', borderRadius: '12px',
+                border: '1px solid rgba(109,123,255,0.35)', background: 'rgba(109,123,255,0.10)',
+                color: '#c7ccff', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0l-4-4m4 4l4-4M5 17v2a2 2 0 002 2h10a2 2 0 002-2v-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                Instalar app en tu dispositivo
+              </button>
+              {showIosHelp && (
+                <p style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '10px', textAlign: 'center', lineHeight: 1.5 }}>
+                  En iPhone/iPad: abre este sitio en <b>Safari</b>, toca <b>Compartir</b> y elige <b>&ldquo;Agregar a inicio&rdquo;</b>.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Demo accounts SOLO en desarrollo */}
           {IS_DEV && (
