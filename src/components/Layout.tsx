@@ -12,6 +12,7 @@ import {
   TrendingUp, Bell, DollarSign, ClipboardCheck, Sparkles, ShoppingCart, Camera, Mail, Phone,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { hiddenPathsForModulos } from '../config/rubros';
 import AiChat from './AiChat';
 
 type Notification = {
@@ -432,7 +433,11 @@ export default function Layout() {
 
   if (!user) return null;
 
-  const sections = filterMvpSections(getNavSections(user.rol));
+  const _tenantModulos = (tenant?.branding as any)?.modulos as string[] | undefined;
+  const _moduloHidden = hiddenPathsForModulos(_tenantModulos);
+  const sections = filterMvpSections(getNavSections(user.rol))
+    .map(sec => ({ ...sec, items: sec.items.filter(it => !_moduloHidden.has((it.to.split('/').filter(Boolean).pop() || ''))) }))
+    .filter(sec => sec.items.length > 0);
   const rc = ROL_CONFIG[user.rol] || { label: user.rol, bg: 'bg-slate-500', color: 'text-slate-700' };
   const initials = (user.nombre || 'U').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
   const brandName = user.rol === 'superadmin' ? 'ConectaWork' : (tenant?.nombre || 'Taller');
