@@ -184,9 +184,9 @@ export default function Login() {
 
           {/* Mobile logo */}
           <div className="lg:hidden" style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <div style={{ display: 'inline-block', background: '#fff', borderRadius: '18px', padding: '14px 20px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-              <img src="/logo.png" alt="ConectaWork" style={{ maxWidth: '210px', width: '100%', display: 'block' }} />
-            </div>
+            <img src="/icons/icon-512-v2.png" alt="ConectaWork" style={{ width: '68px', height: '68px', borderRadius: '18px', margin: '0 auto', background: '#fff', objectFit: 'contain', padding: '6px', display: 'block', boxShadow: '0 10px 28px rgba(0,0,0,0.35)' }} />
+            <h1 style={{ marginTop: '12px', fontSize: '22px', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>ConectaWork</h1>
+            <p style={{ fontSize: '13px', color: '#94a3b8', margin: '4px 0 0' }}>Sistema de Gestión de Talleres</p>
           </div>
 
           {/* PWA tip */}
