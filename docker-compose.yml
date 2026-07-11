@@ -28,15 +28,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    # Secretos (SECRET_KEY, MAILSAAS_API_KEY, GROQ_API_KEY) fuera de git: ver .env.runtime
+    env_file:
+      - .env.runtime
     environment:
       DATABASE_URL: postgresql+asyncpg://conectawork_app:conectawork_app@db:5432/conectawork
-      SECRET_KEY: dev-secret-only-change-in-production
       REDIS_URL: redis://redis:6379/0
-      MAILSAAS_API_KEY: sk_live_6pplo4eac1j6m26z2j9np
       FROM_EMAIL: noreply@working.conectaai.cl
       FROM_NAME: WorkShopOS
-      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
-      ENVIRONMENT: development
+      CORS_ORIGINS: https://working.conectaai.cl
+      ENVIRONMENT: production
     restart: unless-stopped
 
 volumes:
