@@ -640,6 +640,17 @@ export function DetalleInstalacion() {
   const estadoActual = orden?.estado || '';
   const gpsAutoEnabled = estadoActual === 'en_camino' || estadoActual === 'en_ruta';
   const { tracking, startTracking, stopTracking, gpsError } = useGpsTracker(numId, gpsAutoEnabled);
+  const [compartiendo, setCompartiendo] = useState(false);
+  const [trackUrl, setTrackUrl] = useState<string | null>(null);
+  const compartirUbicacion = async () => {
+    setCompartiendo(true);
+    try {
+      const r: any = await (api as any).activateTracking(numId);
+      setTrackUrl(r?.tracking_url || r?.url || 'ok');
+      startTracking();
+    } catch { /* */ }
+    setCompartiendo(false);
+  };
 
   const doChange = useCallback(async (estado: string, notas?: string) => {
     const res = await cambiarEstado(estado, notas);
@@ -686,6 +697,37 @@ export function DetalleInstalacion() {
         </div>
         <span className={`rounded-full px-3 py-1 text-sm font-bold ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
       </div>
+
+      {/* Compartir ubicación con el cliente (opcional) */}
+      {!['cerrada', 'cerrado'].includes(orden.estado) && (
+        <div className="rounded-xl border border-violet-200 bg-violet-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100">
+              <MapPin size={18} className="text-violet-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-slate-900">Compartir mi ubicación con el cliente</p>
+              <p className="text-xs text-slate-500">Opcional. El cliente recibe un link por WhatsApp para verte llegar en el mapa.</p>
+              {trackUrl ? (
+                <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5">
+                  <p className="text-[12px] font-semibold text-emerald-700">✓ Ubicación compartida — el cliente recibió el link por WhatsApp</p>
+                  {trackUrl.startsWith('http') && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <input readOnly value={trackUrl} className="min-w-0 flex-1 truncate rounded border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600" />
+                      <button onClick={() => navigator.clipboard.writeText(trackUrl)} className="shrink-0 rounded bg-violet-500 px-2.5 py-1 text-[11px] font-bold text-white">Copiar</button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button onClick={compartirUbicacion} disabled={compartiendo}
+                  className="mt-2 flex items-center gap-2 rounded-lg bg-violet-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-600 disabled:opacity-60">
+                  <MapPin size={15} /> {compartiendo ? 'Compartiendo…' : 'Compartir ubicación'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* GPS Status Banner */}
       {(gpsAutoEnabled || gpsError) && (
