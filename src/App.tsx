@@ -16,7 +16,7 @@ import VendedoresStats from './pages/jefe/VendedoresStats';
 import { MisCotizaciones, NuevaCotizacion, PedidoDetalle, DetalleCotizacion } from './pages/vendedor/Vendedor';
 import TomaMedidas from './pages/vendedor/TomaMedidas';
 import Chat from './pages/chat/Chat';
-import { ColaProduccion, DetalleTecnico } from './pages/fabricante/Fabricante';
+import { ColaProduccion, DetalleTecnico, HistorialProduccion } from './pages/fabricante/Fabricante';
 import MisSolicitudes from './pages/fabricante/MisSolicitudes';
 import { MisInstalaciones, DetalleInstalacion, HistorialInstalador } from './pages/instalador/Instalador';
 import { AdminTalleres, AdminUsuarios } from './pages/admin/Admin';
@@ -260,6 +260,7 @@ function AppRoutes() {
       <Route element={<RoleGuard roles={['fabricante']} />}>
         <Route element={<Layout />}>
           <Route path="/fabricante" element={<ColaProduccion />} />
+          <Route path="/fabricante/historial" element={<HistorialProduccion />} />
           <Route path="/fabricante/solicitudes" element={<MisSolicitudes />} />
           <Route path="/fabricante/rrhh" element={<RRHH />} />
           <Route path="/fabricante/permisos" element={<SolicitudesRRHH />} />

@@ -267,6 +267,7 @@ export const api = {
   getMyAgenda: () => fetchWithAuth('/api/v1/mobile/my-agenda'),
   getMyOrders: () => fetchWithAuth('/api/v1/mobile/my-orders'),
   getColaProduccion: () => fetchWithAuth('/api/v1/mobile/cola-produccion'),
+  getHistorialProduccion: () => fetchWithAuth('/api/v1/mobile/historial-produccion'),
   getMisTareasHistorial: () => fetchWithAuth('/api/v1/tasks/historial'),
   getTransitions: (estadoActual: string) =>
     fetchWithAuth(`/api/v1/mobile/transitions/${estadoActual}`),

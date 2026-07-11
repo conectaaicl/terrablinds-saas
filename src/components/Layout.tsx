@@ -327,6 +327,7 @@ function getNavSections(rol: Rol): NavSection[] {
           heading: 'PRODUCCIÓN',
           items: [
             { to: '/fabricante', label: 'Cola de Producción', icon: <Factory size={16} />, end: true },
+            { to: '/fabricante/historial', label: 'Historial', icon: <ClipboardCheck size={16} /> },
             { to: '/fabricante/solicitudes', label: 'Mis Solicitudes', icon: <PackageSearch size={16} /> },
 
           ],

@@ -81,6 +81,7 @@ async def my_agenda(
                 "productos":         r.productos,
                 "cliente_nombre":    r.cliente_nombre,
                 "cliente_telefono":  r.cliente_telefono,
+            "notas_cierre":      r.notas_cierre,
             }
             for r in rows
         ]
@@ -101,7 +102,7 @@ async def my_orders(
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
     """Órdenes activas asignadas al usuario (no terminales), con datos de cliente."""
-    terminales = ["cerrado", "cancelado", "rechazado", "cerrada", "cancelada", "rechazada"]
+    terminales = ["cancelado", "rechazado", "cancelada", "rechazada"]  # cerrada/cerrado shown in completadas
     uid_col = "o.instalador_id" if token_data.role == "instalador" else "o.fabricante_id"
 
     result = await db.execute(
@@ -109,6 +110,7 @@ async def my_orders(
             SELECT
                 o.id, o.numero, o.estado, o.precio_total, o.productos,
                 o.created_at,
+                o.notas_cierre,
                 c.nombre    AS cliente_nombre,
                 c.direccion AS cliente_direccion,
                 c.telefono  AS cliente_telefono
@@ -138,6 +140,7 @@ async def my_orders(
             "cliente_nombre":    r.cliente_nombre,
             "cliente_direccion": r.cliente_direccion,
             "cliente_telefono":  r.cliente_telefono,
+            "notas_cierre":      r.notas_cierre,
         }
         for r in rows
     ]
@@ -161,3 +164,100 @@ async def get_transitions(
         if token_data.role in rule.allowed_roles
     ]
     return {"estado_actual": estado_actual, "transiciones": allowed}
+
+
+@router.get("/historial-produccion")
+async def historial_produccion(
+    token_data: TokenData = Depends(require_roles("fabricante", "jefe", "gerente", "coordinador")),
+    db: AsyncSession = Depends(get_db_for_tenant),
+):
+    """Historial de producción: órdenes ya fabricadas que pasaron a instalación o cierre."""
+    result = await db.execute(
+        text("""
+            SELECT
+                o.id, o.numero, o.estado,
+                o.precio_total, o.productos,
+                o.created_at, o.produccion_subestado,
+                o.fecha_instalacion,
+                c.nombre    AS cliente_nombre,
+                c.direccion AS cliente_direccion,
+                u_fab.nombre AS fabricante_nombre,
+                u_inst.nombre AS instalador_nombre,
+                u_vend.nombre AS vendedor_nombre
+            FROM orders o
+            LEFT JOIN clients c ON c.id = o.cliente_id
+            LEFT JOIN users u_fab ON u_fab.id = o.fabricante_id
+            LEFT JOIN users u_inst ON u_inst.id = o.instalador_id
+            LEFT JOIN users u_vend ON u_vend.id = o.vendedor_id
+            WHERE o.tenant_id = :tid
+              AND o.estado IN ('instalacion_programada','en_camino','instalando',
+                               'instalacion_completada','cerrada','cerrado','agendado',
+                               'en_ruta','en_instalacion','pendiente_firma','fabricado')
+            ORDER BY o.created_at DESC
+            LIMIT 200
+        """),
+        {"tid": token_data.tenant_id},
+    )
+    rows = result.fetchall()
+    return [
+        {
+            "id": r.id, "numero": r.numero, "estado": r.estado,
+            "precio_total": r.precio_total, "productos": r.productos or [],
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "produccion_subestado": r.produccion_subestado,
+            "fecha_instalacion": r.fecha_instalacion.isoformat() if r.fecha_instalacion else None,
+            "cliente_nombre": r.cliente_nombre,
+            "cliente_direccion": r.cliente_direccion,
+            "fabricante_nombre": r.fabricante_nombre,
+            "instalador_nombre": r.instalador_nombre,
+            "vendedor_nombre": r.vendedor_nombre,
+        }
+        for r in rows
+    ]
+
+
+@router.get("/cola-produccion")
+async def cola_produccion(
+    token_data: TokenData = Depends(require_roles("fabricante", "jefe", "gerente", "coordinador")),
+    db: AsyncSession = Depends(get_db_for_tenant),
+):
+    """Cola de produccion: todas las ordenes aprobada/en_fabricacion/listo_para_instalar del tenant."""
+    result = await db.execute(
+        text("""
+            SELECT
+                o.id, o.numero, o.estado,
+                o.precio_total, o.productos,
+                o.created_at, o.produccion_subestado,
+                o.fecha_instalacion,
+                c.nombre    AS cliente_nombre,
+                c.direccion AS cliente_direccion,
+                u_fab.nombre AS fabricante_nombre,
+                u_inst.nombre AS instalador_nombre,
+                u_vend.nombre AS vendedor_nombre
+            FROM orders o
+            LEFT JOIN clients c ON c.id = o.cliente_id
+            LEFT JOIN users u_fab ON u_fab.id = o.fabricante_id
+            LEFT JOIN users u_inst ON u_inst.id = o.instalador_id
+            LEFT JOIN users u_vend ON u_vend.id = o.vendedor_id
+            WHERE o.tenant_id = :tid
+              AND o.estado IN ('aprobada','en_fabricacion','listo_para_instalar','problema')
+            ORDER BY o.created_at ASC
+        """),
+        {"tid": token_data.tenant_id},
+    )
+    rows = result.fetchall()
+    return [
+        {
+            "id": r.id, "numero": r.numero, "estado": r.estado,
+            "precio_total": r.precio_total, "productos": r.productos or [],
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "produccion_subestado": r.produccion_subestado,
+            "fecha_instalacion": r.fecha_instalacion.isoformat() if r.fecha_instalacion else None,
+            "cliente_nombre": r.cliente_nombre,
+            "cliente_direccion": r.cliente_direccion,
+            "fabricante_nombre": r.fabricante_nombre,
+            "instalador_nombre": r.instalador_nombre,
+            "vendedor_nombre": r.vendedor_nombre,
+        }
+        for r in rows
+    ]
