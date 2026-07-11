@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Link, useParams, useNavigate, useMatch } from 'react-router-dom';
+import { Link, useParams, useNavigate, useMatch, useSearchParams } from 'react-router-dom';
 
 import { useApi } from '../../hooks/useApi';
 import { useMutation } from '../../hooks/useMutation';
@@ -7,7 +7,7 @@ import { api } from '../../services/api';
 import { ESTADO_CONFIG } from '../../types';
 import type { EstadoOrden } from '../../types';
 import { Spinner, ErrorMessage } from '../../components/LoadingStates';
-import { Search, Filter, ArrowLeft, Clock, User, Ruler, Palette, ChevronRight, Loader2, ExternalLink, Shield, UserPlus } from 'lucide-react';
+import { Search, Filter, ArrowLeft, Clock, User, Ruler, Palette, ChevronRight, Loader2, ExternalLink, Shield, UserPlus, Camera, FileText, PenLine } from 'lucide-react';
 
 function GoogleMapsLink({ direccion }: { direccion: string }) {
   const url = `https://maps.google.com/?q=${encodeURIComponent(direccion)}`;
@@ -74,13 +74,91 @@ function QuickAssignCell({
   );
 }
 
+// ─── Reporte de Instalación (jefe / coordinador / vendedor) ───
+const API_URL_O = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:8000';
+
+function ReporteInstalacion({ orderId }: { orderId: number }) {
+  const { data: fotos } = useApi(() => api.getOrderPhotos(orderId), [orderId]);
+  const { data: sigData } = useApi(() => api.getSignature(orderId), [orderId]);
+  const fotoList: any[] = fotos || [];
+  const firma = sigData?.firma;
+
+  const TIPO_CFG: Record<string, { label: string; color: string }> = {
+    antes:   { label: 'Antes',   color: 'bg-slate-100 text-slate-600 border-slate-200'      },
+    durante: { label: 'Durante', color: 'bg-blue-50 text-blue-600 border-blue-200'           },
+    despues: { label: 'Después', color: 'bg-emerald-50 text-emerald-700 border-emerald-200'  },
+    otro:    { label: 'Otro',    color: 'bg-slate-100 text-slate-500 border-slate-200'       },
+    problema:{ label: 'Problema',color: 'bg-red-50 text-red-600 border-red-200'              },
+  };
+
+  const byTipo = (tipo: string) => fotoList.filter(f => f.tipo === tipo);
+  const fmtD = (s: string) => s ? new Date(s).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  if (fotoList.length === 0 && !firma) {
+    return (
+      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] p-5 text-center">
+        <Camera size={28} className="mx-auto mb-2 text-slate-500" />
+        <p className="text-sm text-slate-400">Sin fotos ni firma registradas</p>
+        <p className="text-xs text-slate-500">El instalador aún no ha cargado el reporte de cierre</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] backdrop-blur-xl p-5 space-y-5">
+      <h2 className="flex items-center gap-2 text-base font-semibold text-slate-100">
+        <Camera size={16} /> Reporte de Instalación
+        <span className="ml-auto text-xs font-normal text-slate-400">{fotoList.length} foto{fotoList.length !== 1 ? 's' : ''}</span>
+      </h2>
+
+      {/* Firma del cliente */}
+      {firma && (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
+          <div className="flex items-center gap-2">
+            <PenLine size={14} className="text-emerald-400" />
+            <p className="text-sm font-semibold text-emerald-300">Firmado por cliente</p>
+          </div>
+          <p className="mt-1 text-xs text-slate-300">{firma.firmante_nombre}
+            {firma.firmante_rut && <span className="ml-2 text-slate-400">· {firma.firmante_rut}</span>}
+          </p>
+          <p className="text-xs text-slate-400">{fmtD(firma.firmado_at)}</p>
+        </div>
+      )}
+
+      {/* Fotos por tipo */}
+      {(['antes', 'durante', 'despues', 'otro', 'problema'] as const).map(t => {
+        const list = byTipo(t);
+        if (list.length === 0) return null;
+        const cfg = TIPO_CFG[t];
+        return (
+          <div key={t}>
+            <p className={`mb-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${cfg.color}`}>
+              {cfg.label} ({list.length})
+            </p>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {list.map((f: any) => (
+                <a key={f.id} href={`${API_URL_O}${f.url}`} target="_blank" rel="noopener noreferrer"
+                  className="aspect-square overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-slate-800">
+                  <img src={`${API_URL_O}${f.url}`} alt={cfg.label}
+                    className="h-full w-full object-cover opacity-90 transition hover:opacity-100" />
+                </a>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function OrdenesLista() {
   const isCoord = !!useMatch('/coordinador/*');
   const isGerente = !!useMatch('/gerente/*');
   const base = isCoord ? '/coordinador' : isGerente ? '/gerente' : '/jefe';
 
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState('');
-  const [filtro, setFiltro] = useState('todos');
+  const [filtro, setFiltro] = useState(searchParams.get('estado') || 'todos');
 
   const { data: orders, loading, error, refetch } = useApi(() => api.getOrders());
   const { data: fabricantes } = useApi(() => api.getUsersByRole('fabricante'));
@@ -456,6 +534,22 @@ export function OrdenDetalle() {
           })()}
         </div>
       </div>
+
+      {/* Descripción del trabajo */}
+      {orden.notas_cierre && (
+        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(10,16,32,0.9)] backdrop-blur-xl p-5">
+          <h2 className="mb-2 flex items-center gap-2 text-base font-semibold text-slate-100">
+            <FileText size={16} /> Descripción del trabajo realizado
+          </h2>
+          <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{orden.notas_cierre}</p>
+        </div>
+      )}
+
+      {/* Reporte de instalación (fotos + firma) */}
+      {['instalacion_programada', 'agendado', 'instalando', 'en_instalacion', 'en_camino', 'en_ruta',
+        'instalacion_completada', 'pendiente_firma', 'cerrada', 'cerrado'].includes(orden.estado) && (
+        <ReporteInstalacion orderId={numId} />
+      )}
     </div>
   );
 }
