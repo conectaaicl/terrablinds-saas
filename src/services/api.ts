@@ -12,6 +12,37 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
+// ── Refresco single-flight ──
+// Todas las requests que reciben 401 a la vez comparten UN solo refresh,
+// evitando la rotación concurrente que revoca la sesión (reuse detection).
+let refreshPromise: Promise<string | null> | null = null;
+
+async function doRefresh(): Promise<string | null> {
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) return null;
+  try {
+    const res = await fetch(`${API_URL}/api/v1/auth/token/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    accessToken = data.access_token;
+    localStorage.setItem('refresh_token', data.refresh_token);
+    return data.access_token as string;
+  } catch {
+    return null;
+  }
+}
+
+function refreshOnce(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = doRefresh().finally(() => { refreshPromise = null; });
+  }
+  return refreshPromise;
+}
+
 async function fetchWithAuth(endpoint: string, options: RequestInit = {}, skipContentType?: boolean): Promise<any> {
   const headers: Record<string, string> = {
     ...(skipContentType ? {} : { 'Content-Type': 'application/json' }),
@@ -27,48 +58,23 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}, skipCo
     headers,
   });
 
-  // Auto-refresh en 401
+  // Auto-refresh en 401 — single-flight (un solo refresh compartido)
   if (response.status === 401 && accessToken) {
-    const refreshToken = localStorage.getItem('refresh_token');
-    if (refreshToken) {
-      try {
-        const refreshRes = await fetch(`${API_URL}/api/v1/auth/token/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        });
-        if (refreshRes.ok) {
-          const data = await refreshRes.json();
-          accessToken = data.access_token;
-          localStorage.setItem('refresh_token', data.refresh_token);
-          headers['Authorization'] = `Bearer ${data.access_token}`;
-
-          // Reintentar sin Content-Type si era multipart
-          const retryHeaders = skipContentType
-            ? { Authorization: headers['Authorization'] }
-            : headers;
-
-          // Reintentar la request original
-          response = await fetch(`${API_URL}${endpoint}`, {
-            ...options,
-            headers: retryHeaders,
-          });
-        } else {
-          // Refresh falló — limpiar sesión
-          accessToken = null;
-          localStorage.removeItem('refresh_token');
-          window.location.hash = '#/login';
-          throw new Error('Session expired');
-        }
-      } catch {
-        accessToken = null;
-        localStorage.removeItem('refresh_token');
-        window.location.hash = '#/login';
-        throw new Error('Session expired');
-      }
+    const newToken = await refreshOnce();
+    if (newToken) {
+      headers['Authorization'] = `Bearer ${newToken}`;
+      const retryHeaders = skipContentType
+        ? { Authorization: headers['Authorization'] }
+        : headers;
+      response = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        headers: retryHeaders,
+      });
     } else {
+      accessToken = null;
+      localStorage.removeItem('refresh_token');
       window.location.hash = '#/login';
-      throw new Error('Unauthorized');
+      throw new Error('Session expired');
     }
   }
 
@@ -132,7 +138,7 @@ export const api = {
     fetchWithAuth(`/api/v1/users/${id}/toggle`, { method: 'PATCH' }),
   getUsersByRole: (role: string) =>
     fetchWithAuth(`/api/v1/users/by-role/${role}`),
-  updateUser: (id: number, data: { nombre?: string; email?: string; rol?: string }) =>
+  updateUser: (id: number, data: { nombre?: string; email?: string; rol?: string; telefono?: string }) =>
     fetchWithAuth(`/api/v1/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   resendCredentials: (id: number) =>
     fetchWithAuth(`/api/v1/users/${id}/reset-password`, { method: 'POST' }),
@@ -143,6 +149,8 @@ export const api = {
   getTenants: () => fetchWithAuth('/api/v1/tenants/'),
   createTenant: (data: any) =>
     fetchWithAuth('/api/v1/tenants/', { method: 'POST', body: JSON.stringify(data) }),
+  deleteTenant: (id: string) =>
+    fetchWithAuth(`/api/v1/tenants/${id}`, { method: 'DELETE' }),
   updateTenant: (id: string, data: any) =>
     fetchWithAuth(`/api/v1/tenants/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
@@ -151,6 +159,14 @@ export const api = {
     const qs = params && Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : '';
     return fetchWithAuth(`/api/v1/clients/${qs}`);
   },
+  getClientsWithOrders: (q?: string) => {
+    const qs = q ? '?has_orders=true&q=' + encodeURIComponent(q) + '&limit=100' : '?has_orders=true&limit=100';
+    return fetchWithAuth('/api/v1/clients/' + qs);
+  },
+  getClientOrders: (clientId: number) => fetchWithAuth('/api/v1/orders/?cliente_id=' + clientId + '&limit=10'),
+  getTenantBranding: () => fetchWithAuth('/api/v1/tenants/me'),
+  updateTenantBranding: (data: Record<string, string>) =>
+    fetchWithAuth('/api/v1/tenants/me/branding', { method: 'PATCH', body: JSON.stringify(data) }),
   createClient: (data: any) =>
     fetchWithAuth('/api/v1/clients/', { method: 'POST', body: JSON.stringify(data) }),
   updateClient: (id: number, data: any) =>
@@ -206,6 +222,35 @@ export const api = {
       body: JSON.stringify({ estado }),
     }),
 
+  // ── Catalogo de Productos ───────────────────────────────────
+  listCatalogo: (q?: string, tipo?: string) => {
+    const ps: string[] = [];
+    if (q) ps.push('q=' + encodeURIComponent(q));
+    if (tipo) ps.push('tipo=' + encodeURIComponent(tipo));
+    const qs = ps.length ? '?' + ps.join('&') : '';
+    return fetchWithAuth('/api/v1/catalogo/' + qs);
+  },
+  createCatalogo: (data: any) =>
+    fetchWithAuth('/api/v1/catalogo/', { method: 'POST', body: JSON.stringify(data) }),
+  updateCatalogo: (id: number, data: any) =>
+    fetchWithAuth('/api/v1/catalogo/' + id, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCatalogo: (id: number) =>
+    fetchWithAuth('/api/v1/catalogo/' + id, { method: 'DELETE' }),
+  uploadCatalogoCSV: (formData: FormData) =>
+    fetchWithAuth('/api/v1/catalogo/upload-csv', { method: 'POST', body: formData }, true),
+  uploadCatalogoFoto: (id: number, formData: FormData) =>
+    fetchWithAuth('/api/v1/catalogo/' + id + '/foto', { method: 'POST', body: formData }, true),
+
+  // ── Compras Pendientes ───────────────────────────────────────
+  listCompras: (estado?: string) =>
+    fetchWithAuth('/api/v1/compras/' + (estado ? '?estado=' + estado : '')),
+  createCompra: (data: any) =>
+    fetchWithAuth('/api/v1/compras/', { method: 'POST', body: JSON.stringify(data) }),
+  updateCompra: (id: number, data: any) =>
+    fetchWithAuth('/api/v1/compras/' + id, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCompra: (id: number) =>
+    fetchWithAuth('/api/v1/compras/' + id, { method: 'DELETE' }),
+
   // ── Notifications ─────────────────────────────────────────
   getNotifications: () => fetchWithAuth('/api/v1/notifications/'),
   createNotification: (mensaje: string, tipo: string) =>
@@ -221,6 +266,7 @@ export const api = {
   // ── Mobile (instalador / fabricante) ──────────────────────
   getMyAgenda: () => fetchWithAuth('/api/v1/mobile/my-agenda'),
   getMyOrders: () => fetchWithAuth('/api/v1/mobile/my-orders'),
+  getColaProduccion: () => fetchWithAuth('/api/v1/mobile/cola-produccion'),
   getTransitions: (estadoActual: string) =>
     fetchWithAuth(`/api/v1/mobile/transitions/${estadoActual}`),
 
@@ -290,6 +336,14 @@ export const api = {
   deactivateTracking: (orderId: number) =>
     fetchWithAuth(`/api/v1/gps/tracking/stop/${orderId}`, { method: 'POST' }),
   getInstaladorOrders: () => fetchWithAuth('/api/v1/gps/my-orders'),
+  getInstaladorTasks: () => fetchWithAuth('/api/v1/gps/my-tasks'),
+  activateTaskTracking: (taskId: string) =>
+    fetchWithAuth(`/api/v1/gps/tracking/start-task/${taskId}`, { method: 'POST' }),
+  deactivateTaskTracking: (taskId: string) =>
+    fetchWithAuth(`/api/v1/gps/tracking/stop-task/${taskId}`, { method: 'POST' }),
+  sendGpsPingWithTask: (data: { lat: number; lon: number; precision_m?: number; velocidad_kmh?: number; heading?: number; task_id?: string }) =>
+    fetchWithAuth('/api/v1/gps/ping', { method: 'POST', body: JSON.stringify(data) }),
+
 
   // ── Auth — recuperación de contraseña ────────────────────
   forgotPassword: (email: string) =>
@@ -328,6 +382,10 @@ export const api = {
     direccion?: string; ot_numero?: string; vendedor_nombre?: string;
     items?: { descripcion: string; ubicacion?: string }[];
     observaciones?: string[];
+    empresa_cliente?: string;
+    cliente_email?: string;
+    restriccion_horaria?: string;
+    nota_especial?: string;
   }) => fetchWithAuth('/api/v1/tasks/', { method: 'POST', body: JSON.stringify(data) }),
   updateTask: (id: string, data: { estado?: string; notas_cierre?: string; titulo?: string; prioridad?: string }) =>
     fetchWithAuth(`/api/v1/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
@@ -339,7 +397,7 @@ export const api = {
   createPermiso: (data: {
     tipo: string; fecha_inicio: string; fecha_fin: string; dias: number; motivo?: string;
   }) => fetchWithAuth('/api/v1/permisos/', { method: 'POST', body: JSON.stringify(data) }),
-  revisarPermiso: (id: string, data: { estado: string; respuesta?: string }) =>
+  revisarPermiso: (id: string, data: { estado: string; respuesta?: string; dias_aprobados?: number; fecha_inicio_aprobada?: string; fecha_fin_aprobada?: string }) =>
     fetchWithAuth(`/api/v1/permisos/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   cancelarPermiso: (id: string) =>
     fetchWithAuth(`/api/v1/permisos/${id}`, { method: 'DELETE' }),
@@ -357,6 +415,11 @@ export const api = {
     firma_data: string; firmante_nombre: string; firmante_rut?: string;
     firmante_email?: string; lat?: number; lon?: number;
   }) => fetchWithAuth(`/api/v1/orders/${orderId}/signature`, { method: 'POST', body: JSON.stringify(data) }),
+
+  updateNotasCierre: (orderId: number, notas: string) =>
+    fetchWithAuth(`/api/v1/orders/${orderId}/notas-cierre`, { method: 'PATCH', body: JSON.stringify({ notas_cierre: notas }) }),
+  getSignature: (orderId: number) =>
+    fetchWithAuth(`/api/v1/orders/${orderId}/signature`),
 
   // ── Inventario ────────────────────────────────────────────
   getInventarioItems: (params?: { categoria?: string; solo_bajo_minimo?: boolean }) => {
@@ -469,6 +532,12 @@ export const api = {
     fetchWithAuth('/api/v1/liquidaciones/' + id + '/aprobar', { method: 'PATCH' }),
   pagarLiquidacion: (id: number) =>
     fetchWithAuth('/api/v1/liquidaciones/' + id + '/pagar', { method: 'PATCH' }),
+  aiChat: (data: { message: string; history?: any[] }) =>
+    fetchWithAuth("/api/v1/ai/chat", { method: "POST", body: JSON.stringify(data) }),
+  aiStatus: () => fetchWithAuth("/api/v1/ai/status"),
+  getAiConfig: () => fetchWithAuth("/api/v1/tenants/me/ai-config"),
+  updateAiConfig: (data: Record<string, string>) =>
+    fetchWithAuth("/api/v1/tenants/me/ai-config", { method: "PATCH", body: JSON.stringify(data) }),
   ajustarLiquidacion: (id: number, data: { ajustes: number; notas_ajustes?: string }) =>
     fetchWithAuth('/api/v1/liquidaciones/' + id + '/ajuste', { method: 'PATCH', body: JSON.stringify(data) }),
 
