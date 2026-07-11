@@ -123,7 +123,7 @@ def _modern_email(icon, title, subtitle, intro, cred_rows, cta_label, footer,
 <div style="color:rgba(255,255,255,.85);font-size:15px">{subtitle}</div>
 </td></tr>
 <tr><td style="padding:32px 36px">
-<p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 22px">{intro}</p>
+<img src="https://working.conectaai.cl/logo.png" width="190" style="display:block;margin:2px auto 22px;max-width:190px" alt="ConectaWork"/><p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 22px">{intro}</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7fb;border:1px solid #eceef5;border-radius:14px;margin-bottom:22px">{cred_rows}</table>
 <div style="background:#fff8ed;border:1px solid #ffe0b3;border-radius:12px;padding:13px 16px;margin-bottom:24px"><span style="color:#9a5b12;font-size:13px">Por seguridad, cambia tu contrase&ntilde;a la primera vez que ingreses.</span></div>
 <a href="{cta_url}" style="display:block;text-align:center;background:linear-gradient(135deg,#6d7bff,#4c1d95);color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;border-radius:12px;padding:15px 24px">{cta_label} &rarr;</a>

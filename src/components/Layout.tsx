@@ -634,16 +634,7 @@ export default function Layout() {
             <Menu size={22} />
           </button>
           <div className="flex items-center gap-2">
-            {brandLogoSrc ? (
-              <img src={brandLogoSrc} alt="" className="h-8 w-8 rounded-lg object-cover" />
-            ) : (
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-base"
-                style={{ background: 'linear-gradient(135deg, var(--brand-light), var(--brand-primary))' }}
-              >
-                <span>{brandEmoji}</span>
-              </div>
-            )}
+            <img src={brandLogoSrc || '/icons/icon-512.png'} alt="ConectaWork" className="h-9 w-9 rounded-lg bg-white object-contain p-0.5" />
             <span className="hidden text-sm font-bold text-slate-100 sm:inline">{brandName}</span>
           </div>
 
