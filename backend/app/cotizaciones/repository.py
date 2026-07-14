@@ -31,7 +31,9 @@ async def get_by_id(db: AsyncSession, cot_id: UUID, tenant_id: str) -> Cotizacio
     return result.scalar_one_or_none()
 
 
-async def list_all(db: AsyncSession, tenant_id: str, vendedor_id: int | None = None) -> list[Cotizacion]:
+async def list_all(
+    db: AsyncSession, tenant_id: str, vendedor_id: int | None = None, client_id: int | None = None
+) -> list[Cotizacion]:
     q = (
         select(Cotizacion)
         .options(selectinload(Cotizacion.client), selectinload(Cotizacion.vendedor))
@@ -40,5 +42,7 @@ async def list_all(db: AsyncSession, tenant_id: str, vendedor_id: int | None = N
     )
     if vendedor_id is not None:
         q = q.where(Cotizacion.vendedor_id == vendedor_id)
+    if client_id is not None:
+        q = q.where(Cotizacion.cliente_id == client_id)
     result = await db.execute(q)
     return list(result.scalars().all())

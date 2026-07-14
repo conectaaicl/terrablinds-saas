@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { Spinner } from '../../components/LoadingStates';
-import { DollarSign, Package, ClipboardList } from 'lucide-react';
+import { DollarSign, Package, ClipboardList, Lock } from 'lucide-react';
 
 const fmt = (n: number) => '$' + (n || 0).toLocaleString('es-CL');
 
@@ -21,9 +21,11 @@ export default function MisComisiones() {
   const [data, setData] = useState<any>(null);
   const [liqData, setLiqData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [blocked, setBlocked] = useState(false);
 
   const load = async () => {
     setLoading(true);
+    setBlocked(false);
     try {
       const [comisiones, liqs] = await Promise.all([
         api.getMisComisiones(periodo),
@@ -31,14 +33,28 @@ export default function MisComisiones() {
       ]);
       setData(comisiones);
       setLiqData(liqs || []);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      if (String(e?.message || '').includes('restringió')) {
+        setBlocked(true);
+      } else {
+        console.error(e);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => { load(); }, [periodo]);
+
+  if (blocked) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-800 py-16 text-center">
+        <Lock size={32} className="text-slate-600" />
+        <p className="text-slate-300 font-semibold">No tienes acceso a esta sección</p>
+        <p className="text-sm text-slate-500 max-w-sm">El jefe restringió el acceso a comisiones y liquidaciones para tu cuenta. Si crees que es un error, habla con tu jefe.</p>
+      </div>
+    );
+  }
 
   const comisiones = data?.comisiones || [];
   const total = data?.total || 0;

@@ -267,6 +267,7 @@ function getNavSections(rol: Rol): NavSection[] {
             { to: '/coordinador/tareas', label: 'Tareas', icon: <ListTodo size={16} /> },
             { to: '/coordinador/gps', label: 'GPS en Vivo', icon: <Radio size={16} /> },
             { to: '/coordinador/ordenes', label: 'Órdenes', icon: <ClipboardList size={16} /> },
+            { to: '/coordinador/cotizaciones', label: 'Cotizaciones', icon: <FileText size={16} /> },
           ],
         },
         {
@@ -286,6 +287,7 @@ function getNavSections(rol: Rol): NavSection[] {
             { to: '/coordinador/rrhh', label: 'RRHH Docs', icon: <FolderOpen size={16} /> },
             { to: '/coordinador/permisos', label: 'Permisos / Vacaciones', icon: <CalendarDays size={16} /> },
             { to: '/coordinador/registro-trabajo', label: 'Registro de Trabajo', icon: <ClipboardCheck size={16} /> },
+            { to: '/coordinador/comisiones', label: 'Comisiones', icon: <DollarSign size={16} /> },
           ],
         },
         {
@@ -383,6 +385,7 @@ function getNavSections(rol: Rol): NavSection[] {
             { to: '/bodegas/inventario', label: 'Stock & Materiales', icon: <Package size={16} /> },
             { to: '/bodegas/ordenes', label: 'Órdenes', icon: <ClipboardList size={16} /> },
             { to: '/bodegas/insumos', label: 'Solicitudes Insumos', icon: <PackageSearch size={16} /> },
+            { to: '/bodegas/mis-comisiones', label: 'Mis Comisiones', icon: <DollarSign size={16} /> },
           ],
         },
         {

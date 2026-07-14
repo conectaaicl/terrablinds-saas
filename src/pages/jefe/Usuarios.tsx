@@ -8,7 +8,7 @@ import type { Rol } from '../../types';
 import {
   UserPlus, X, Search, Users,
   CheckCircle2, XCircle, Mail, RefreshCw, Edit3,
-  ChevronDown, Loader2, AlertCircle,
+  ChevronDown, Loader2, AlertCircle, DollarSign, Ban,
 } from 'lucide-react';
 
 const ROLE_BADGE: Record<string, { bg: string; text: string; dot: string }> = {
@@ -85,7 +85,7 @@ function EditModal({
   saving: boolean;
   error: string | null;
 }) {
-  const [form, setForm] = useState({ nombre: editUser.nombre, email: editUser.email, rol: editUser.rol as Rol });
+  const [form, setForm] = useState({ nombre: editUser.nombre, email: editUser.email, rol: editUser.rol as Rol, telefono: editUser.telefono || '' });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -112,6 +112,10 @@ function EditModal({
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</label>
             <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={INPUT_CLS} />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-400 uppercase tracking-wider">Teléfono WhatsApp</label>
+            <input type="tel" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} className={INPUT_CLS} placeholder="+56 9 XXXX XXXX" />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-slate-400 uppercase tracking-wider">Rol</label>
@@ -146,8 +150,8 @@ export default function Usuarios() {
   const [modalCreate, setModalCreate] = useState(false);
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
-  const [form, setForm] = useState<{ nombre: string; email: string; password: string; rol: Rol }>({
-    nombre: '', email: '', password: '', rol: 'vendedor',
+  const [form, setForm] = useState<{ nombre: string; email: string; password: string; rol: Rol; telefono: string }>({
+    nombre: '', email: '', password: '', rol: 'vendedor', telefono: '',
   });
 
   const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
@@ -199,6 +203,13 @@ export default function Usuarios() {
     await toggleUsuario(u.id);
     refetch();
     showToast(u.activo ? `${u.nombre} desactivado` : `${u.nombre} activado`);
+  };
+
+  const handleToggleComisiones = async (u: any) => {
+    const nuevoValor = !(u.puede_ver_comisiones ?? true);
+    await updateUser(u.id, { puede_ver_comisiones: nuevoValor });
+    refetch();
+    showToast(nuevoValor ? `${u.nombre} ya puede ver sus comisiones` : `${u.nombre} ya no puede ver sus comisiones`);
   };
 
   const handleResend = async (u: any) => {
@@ -361,8 +372,16 @@ export default function Usuarios() {
                   <p className="truncate text-xs text-slate-500 sm:hidden">{u.email}</p>
                 </div>
               </div>
-              {/* Email */}
-              <p className="hidden sm:block truncate text-sm text-slate-400">{u.email}</p>
+              {/* Email + phone */}
+              <div className="hidden sm:block min-w-0">
+                <p className="truncate text-sm text-slate-400">{u.email}</p>
+                {u.telefono && (
+                  <a href={"https://wa.me/" + u.telefono.replace(/[^0-9]/g,'')} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 mt-0.5">
+                    <span>📱</span> {u.telefono}
+                  </a>
+                )}
+              </div>
               {/* Role */}
               <div><RoleBadge rol={u.rol} /></div>
               {/* Status */}
@@ -405,6 +424,19 @@ export default function Usuarios() {
                 >
                   {u.activo ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
                 </button>
+                {u.rol !== 'jefe' && u.rol !== 'gerente' && (
+                  <button
+                    onClick={() => handleToggleComisiones(u)}
+                    title={(u.puede_ver_comisiones ?? true) ? 'Bloquear acceso a sus comisiones/liquidaciones' : 'Permitir que vea sus comisiones/liquidaciones'}
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-all ${
+                      (u.puede_ver_comisiones ?? true)
+                        ? 'border-[rgba(255,255,255,0.08)] text-slate-400 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400'
+                        : 'border-rose-500/40 bg-rose-500/10 text-rose-400'
+                    }`}
+                  >
+                    {(u.puede_ver_comisiones ?? true) ? <DollarSign size={13} /> : <Ban size={13} />}
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -469,6 +501,19 @@ export default function Usuarios() {
                   className={INPUT_CLS}
                   placeholder="correo@empresa.com"
                 />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Teléfono WhatsApp
+                </label>
+                <input
+                  type="tel"
+                  value={form.telefono}
+                  onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))}
+                  className={INPUT_CLS}
+                  placeholder="+56 9 XXXX XXXX"
+                />
+                <p className="mt-1 text-[11px] text-slate-600">Para envío directo por WhatsApp desde la agenda</p>
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-slate-400 uppercase tracking-wider">

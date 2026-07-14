@@ -51,6 +51,28 @@ export default function Clientes() {
   const [showFilters, setShowFilters] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
+  // ── Cliente 360: todo lo relacionado a este cliente en un solo lugar ──
+  const { data: clienteOrdenes, loading: loadingOrdenes } = useApi(
+    () => selected ? api.getOrders({ client_id: selected.id }) : Promise.resolve([]),
+    [selected?.id]
+  )
+  const { data: clienteCotizaciones, loading: loadingCotizaciones } = useApi(
+    () => selected ? api.getCotizaciones({ client_id: selected.id }) : Promise.resolve([]),
+    [selected?.id]
+  )
+  const { data: clienteAverias, loading: loadingAverias } = useApi(
+    () => selected ? api.getAverias({ client_id: selected.id }) : Promise.resolve([]),
+    [selected?.id]
+  )
+  const { data: clientePostVenta, loading: loadingPostVenta } = useApi(
+    () => selected ? api.getPostVenta({ client_id: selected.id }) : Promise.resolve([]),
+    [selected?.id]
+  )
+  const { data: clienteTareas, loading: loadingTareas } = useApi(
+    () => selected ? api.getTasks({ client_id: selected.id }) : Promise.resolve([]),
+    [selected?.id]
+  )
+
   const params: Record<string,string> = {}
   if (search) params.q = search
   if (filterOrigen) params.origen = filterOrigen
@@ -302,6 +324,21 @@ export default function Clientes() {
               </div>
             )}
 
+            {/* Cliente 360: todo lo relacionado a este cliente */}
+            <div className="border-t border-slate-100 pt-3 space-y-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Actividad de este cliente</p>
+              <ClienteSeccion titulo="Órdenes" loading={loadingOrdenes} items={clienteOrdenes}
+                render={(o: any) => `#${o.numero ?? o.id} · ${o.estado}`} />
+              <ClienteSeccion titulo="Cotizaciones" loading={loadingCotizaciones} items={clienteCotizaciones}
+                render={(c: any) => `${c.estado} · $${(c.precio_total ?? c.total ?? 0).toLocaleString('es-CL')}`} />
+              <ClienteSeccion titulo="Averías / Fallas" loading={loadingAverias} items={clienteAverias}
+                render={(a: any) => `${a.titulo} · ${a.estado}`} />
+              <ClienteSeccion titulo="Post-venta" loading={loadingPostVenta} items={clientePostVenta}
+                render={(p: any) => `${p.tipo} · ${p.estado}`} />
+              <ClienteSeccion titulo="Tareas" loading={loadingTareas} items={clienteTareas}
+                render={(t: any) => `${t.titulo} · ${t.estado}${t.fecha_tarea ? ' · ' + t.fecha_tarea : ''}`} />
+            </div>
+
             <div className="flex gap-2 pt-1">
               <button onClick={() => openEdit(selected)}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
@@ -440,6 +477,38 @@ function Row({ icon, label, value }: { icon: React.ReactNode; label: string; val
         <span className="text-xs text-slate-400">{label}: </span>
         <span className="text-slate-800 font-medium break-all">{value}</span>
       </div>
+    </div>
+  )
+}
+
+function ClienteSeccion({ titulo, loading, items, render }: {
+  titulo: string; loading: boolean; items: any[] | null; render: (item: any) => string
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const lista = items || []
+  return (
+    <div className="rounded-xl border border-slate-100 overflow-hidden">
+      <button type="button" onClick={() => setAbierto(v => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 transition-colors">
+        <span className="text-xs font-semibold text-slate-700">{titulo}</span>
+        <span className="flex items-center gap-2">
+          <span className="text-[11px] font-bold text-slate-500 bg-white rounded-full px-2 py-0.5 border border-slate-200">
+            {loading ? '…' : lista.length}
+          </span>
+          <ChevronDown size={13} className={`text-slate-400 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+        </span>
+      </button>
+      {abierto && (
+        <div className="px-3 py-2 space-y-1">
+          {loading && <p className="text-xs text-slate-400">Cargando…</p>}
+          {!loading && lista.length === 0 && (
+            <p className="text-xs text-slate-400">Sin registros de {titulo.toLowerCase()} para este cliente</p>
+          )}
+          {!loading && lista.map((item, i) => (
+            <p key={item.id ?? i} className="text-xs text-slate-600 truncate">{render(item)}</p>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

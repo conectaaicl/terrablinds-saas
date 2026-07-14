@@ -138,7 +138,7 @@ export const api = {
     fetchWithAuth(`/api/v1/users/${id}/toggle`, { method: 'PATCH' }),
   getUsersByRole: (role: string) =>
     fetchWithAuth(`/api/v1/users/by-role/${role}`),
-  updateUser: (id: number, data: { nombre?: string; email?: string; rol?: string; telefono?: string }) =>
+  updateUser: (id: number, data: { nombre?: string; email?: string; rol?: string; telefono?: string; puede_ver_comisiones?: boolean }) =>
     fetchWithAuth(`/api/v1/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   resendCredentials: (id: number) =>
     fetchWithAuth(`/api/v1/users/${id}/reset-password`, { method: 'POST' }),
@@ -187,7 +187,10 @@ export const api = {
     fetchWithAuth(`/api/v1/rrhh/documentos/${docId}`, { method: 'DELETE' }),
 
   // ── Orders ────────────────────────────────────────────────
-  getOrders: () => fetchWithAuth('/api/v1/orders/'),
+  getOrders: (params?: { client_id?: number }) => {
+    const qs = params?.client_id ? `?client_id=${params.client_id}` : '';
+    return fetchWithAuth(`/api/v1/orders/${qs}`);
+  },
   getOrder: (id: number) => fetchWithAuth(`/api/v1/orders/${id}`),
   createOrder: (data: any) =>
     fetchWithAuth('/api/v1/orders/', { method: 'POST', body: JSON.stringify(data) }),
@@ -291,7 +294,10 @@ export const api = {
   },
 
   // ── Cotizaciones ──────────────────────────────────────────
-  getCotizaciones: () => fetchWithAuth('/api/v1/cotizaciones/'),
+  getCotizaciones: (params?: { client_id?: number }) => {
+    const qs = params?.client_id ? `?client_id=${params.client_id}` : '';
+    return fetchWithAuth(`/api/v1/cotizaciones/${qs}`);
+  },
   createCotizacion: (data: { cliente_id: number; productos: any[]; precio_total: number; notas?: string; valid_until?: string }) =>
     fetchWithAuth('/api/v1/cotizaciones/', { method: 'POST', body: JSON.stringify(data) }),
   getCotizacion: (id: string) => fetchWithAuth(`/api/v1/cotizaciones/${id}`),
@@ -369,8 +375,8 @@ export const api = {
     }),
 
   // ── Tareas Diarias ─────────────────────────────────────────
-  getTasks: (params?: { fecha?: string; asignado_a?: string; estado?: string }) => {
-    const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString() : '';
+  getTasks: (params?: { fecha?: string; asignado_a?: string; estado?: string; client_id?: number }) => {
+    const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v).map(([k, v]) => [k, String(v)])).toString() : '';
     return fetchWithAuth(`/api/v1/tasks/${qs}`);
   },
   getMisTareas: (fecha?: string) => {
@@ -389,8 +395,9 @@ export const api = {
     cliente_email?: string;
     restriccion_horaria?: string;
     nota_especial?: string;
+    items_comision?: { categoria: string; cantidad: number }[];
   }) => fetchWithAuth('/api/v1/tasks/', { method: 'POST', body: JSON.stringify(data) }),
-  updateTask: (id: string, data: { estado?: string; notas_cierre?: string; titulo?: string; prioridad?: string }) =>
+  updateTask: (id: string, data: { estado?: string; notas_cierre?: string; titulo?: string; prioridad?: string; items_comision?: { categoria: string; cantidad: number }[] }) =>
     fetchWithAuth(`/api/v1/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteTask: (id: string) =>
     fetchWithAuth(`/api/v1/tasks/${id}`, { method: 'DELETE' }),
@@ -477,8 +484,8 @@ export const api = {
     fetchWithAuth(`/api/v1/orders/${id}/garantia`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   // ── Post-Venta ────────────────────────────────────────────
-  getPostVenta: (params?: { estado?: string; tipo?: string }) => {
-    const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString() : '';
+  getPostVenta: (params?: { estado?: string; tipo?: string; client_id?: number }) => {
+    const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)]) as [string, string][]).toString() : '';
     return fetchWithAuth(`/api/v1/post-venta/${qs}`);
   },
   getPostVentaStats: () => fetchWithAuth('/api/v1/post-venta/stats'),
@@ -506,9 +513,9 @@ export const api = {
 
   // ── Comisiones y Liquidaciones ────────────────────────────
   getReglasComision: () => fetchWithAuth('/api/v1/comisiones/reglas'),
-  createReglaComision: (data: { categoria: string; rol: string; monto_por_unidad: number; descripcion?: string }) =>
+  createReglaComision: (data: { categoria: string; rol: string; monto_por_unidad: number; descripcion?: string; meta_mensual?: number }) =>
     fetchWithAuth('/api/v1/comisiones/reglas', { method: 'POST', body: JSON.stringify(data) }),
-  updateReglaComision: (id: number, data: { monto_por_unidad?: number; descripcion?: string; activo?: boolean }) =>
+  updateReglaComision: (id: number, data: { monto_por_unidad?: number; descripcion?: string; activo?: boolean; meta_mensual?: number }) =>
     fetchWithAuth('/api/v1/comisiones/reglas/' + id, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteReglaComision: (id: number) =>
     fetchWithAuth('/api/v1/comisiones/reglas/' + id, { method: 'DELETE' }),
@@ -543,5 +550,28 @@ export const api = {
     fetchWithAuth("/api/v1/tenants/me/ai-config", { method: "PATCH", body: JSON.stringify(data) }),
   ajustarLiquidacion: (id: number, data: { ajustes: number; notas_ajustes?: string }) =>
     fetchWithAuth('/api/v1/liquidaciones/' + id + '/ajuste', { method: 'PATCH', body: JSON.stringify(data) }),
+  descargarLiquidacion: async (id: number, formato: 'pdf' | 'xlsx') => {
+    const res = await fetch(`${API_URL}/api/v1/liquidaciones/${id}/export?formato=${formato}`, {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    });
+    if (!res.ok) throw new Error('No se pudo descargar la liquidacion');
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    const filename = match ? match[1] : `liquidacion.${formato}`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+  getLiquidacionDetalle: (id: number) => fetchWithAuth('/api/v1/liquidaciones/' + id),
+  editarComision: (id: number, data: { categoria?: string; cantidad?: number; fecha_trabajo?: string; notas?: string }) =>
+    fetchWithAuth('/api/v1/comisiones/' + id, { method: 'PATCH', body: JSON.stringify(data) }),
+  eliminarComision: (id: number) =>
+    fetchWithAuth('/api/v1/comisiones/' + id, { method: 'DELETE' }),
 
 };

@@ -26,7 +26,8 @@ const COT_ESTADO_CFG: Record<string, { label: string; bg: string; color: string 
 export default function JefeCotizaciones() {
   const navigate = useNavigate();
   const isGerente = !!useMatch('/gerente/*');
-  const base = isGerente ? '/gerente' : '/jefe';
+  const isCoordinador = !!useMatch('/coordinador/*');
+  const base = isGerente ? '/gerente' : isCoordinador ? '/coordinador' : '/jefe';
   const [search, setSearch] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
   const [selected, setSelected] = useState<any | null>(null);
@@ -205,22 +206,10 @@ function DetailPanel({ cot, onClose, onChangeEstado, onConvertir, patching, conv
   const cfg = COT_ESTADO_CFG[cot.estado] || COT_ESTADO_CFG.borrador;
   const productos: any[] = cot.productos || [];
 
-  const downloadPdf = async () => {
-    try {
-      const token = localStorage.getItem('access_token') || '';
-      const res = await fetch(`/api/v1/cotizaciones/${cot.id}/pdf`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) { alert('Error al generar PDF'); return; }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `cotizacion_${String(cot.numero || cot.id).padStart(4, '0')}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
-    } catch { alert('Error de conexión al descargar PDF'); }
+  const downloadPdf = () => {
+    const hash = window.location.hash || '';
+    const base = hash.includes('/gerente/') ? '/gerente' : hash.includes('/coordinador/') ? '/coordinador' : '/jefe';
+    window.open(`#${base}/cotizaciones/${cot.id}/imprimir`, '_blank');
   };
 
 

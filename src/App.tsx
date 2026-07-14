@@ -224,6 +224,9 @@ function AppRoutes() {
           <Route path="/coordinador/gps" element={<MapaGPS />} />
           <Route path="/coordinador/ordenes" element={<OrdenesLista />} />
           <Route path="/coordinador/ordenes/:id" element={<OrdenDetalle />} />
+          <Route path="/coordinador/cotizaciones" element={<JefeCotizaciones />} />
+          <Route path="/coordinador/cotizaciones/nueva" element={<NuevaCotizacion />} />
+          <Route path="/coordinador/cotizaciones/:id/imprimir" element={<CotizacionPrint />} />
           <Route path="/coordinador/usuarios" element={<Usuarios />} />
           <Route path="/coordinador/catalogo" element={<CatalogoAdmin />} />
           <Route path="/coordinador/clientes" element={<Clientes />} />
@@ -233,6 +236,7 @@ function AppRoutes() {
           <Route path="/coordinador/insumos" element={<BodegasInsumos />} />
           <Route path="/coordinador/permisos" element={<SolicitudesRRHH />} />
           <Route path="/coordinador/registro-trabajo" element={<RegistroTrabajo />} />
+          <Route path="/coordinador/comisiones" element={<Comisiones />} />
           <Route path="/coordinador/cambiar-password" element={<ChangePassword />} />
         </Route>
       </Route>
@@ -296,6 +300,7 @@ function AppRoutes() {
           <Route path="/bodegas/ordenes/:id" element={<OrdenDetalle />} />
           <Route path="/bodegas/insumos" element={<BodegasInsumos />} />
           <Route path="/bodegas/inventario" element={<Inventario />} />
+          <Route path="/bodegas/mis-comisiones" element={<MisComisiones />} />
           <Route path="/bodegas/cambiar-password" element={<ChangePassword />} />
         </Route>
       </Route>

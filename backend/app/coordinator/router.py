@@ -180,6 +180,42 @@ async def weekly_agenda(
                 "cliente_direccion":  r.cliente_direccion,
             })
 
+        # Tareas diarias (agenda de servicio tecnico / instalaciones sin OT formal)
+        # en el mismo rango de fechas, para que se vean junto a las citas de ordenes.
+        tareas_por_dia: dict[str, list] = {}
+        try:
+            tareas_result = await db.execute(
+                text("""
+                    SELECT t.id, t.titulo, t.fecha_tarea, t.hora, t.tipo_tarea, t.estado,
+                           t.cliente_nombre, t.cliente_telefono, t.direccion,
+                           t.ot_numero, t.asignado_a, u.nombre AS asignado_a_nombre
+                    FROM daily_tasks t
+                    LEFT JOIN users u ON u.id = t.asignado_a
+                    WHERE t.tenant_id = :tenant_id
+                      AND t.fecha_tarea BETWEEN :start_date AND :end_date
+                      AND t.estado != 'cancelada'
+                    ORDER BY t.fecha_tarea, t.hora
+                """),
+                {"tenant_id": token_data.tenant_id, "start_date": today, "end_date": week_end},
+            )
+            for t in tareas_result.fetchall():
+                day = t.fecha_tarea.isoformat()
+                tareas_por_dia.setdefault(day, []).append({
+                    "id": str(t.id),
+                    "titulo": t.titulo,
+                    "hora": t.hora,
+                    "tipo_tarea": t.tipo_tarea,
+                    "estado": t.estado,
+                    "cliente_nombre": t.cliente_nombre,
+                    "cliente_telefono": t.cliente_telefono,
+                    "direccion": t.direccion,
+                    "ot_numero": t.ot_numero,
+                    "asignado_a": t.asignado_a,
+                    "asignado_a_nombre": t.asignado_a_nombre,
+                })
+        except Exception:
+            tareas_por_dia = {}
+
         return {
             "desde": today.isoformat(),
             "hasta": week_end.isoformat(),
@@ -187,6 +223,7 @@ async def weekly_agenda(
                 {
                     "fecha": (today + timedelta(days=i)).isoformat(),
                     "citas": agenda.get((today + timedelta(days=i)).isoformat(), []),
+                    "tareas": tareas_por_dia.get((today + timedelta(days=i)).isoformat(), []),
                 }
                 for i in range(7)
             ],

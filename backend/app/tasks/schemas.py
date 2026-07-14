@@ -10,6 +10,11 @@ class TaskItem(BaseModel):
     ubicacion: Optional[str] = None
 
 
+class ComisionItem(BaseModel):
+    categoria: str
+    cantidad: int = Field(gt=0)
+
+
 class TaskCreate(BaseModel):
     titulo: str = Field(min_length=1, max_length=300)
     descripcion: Optional[str] = None
@@ -28,6 +33,16 @@ class TaskCreate(BaseModel):
     vendedor_nombre: Optional[str] = None
     items: Optional[List[TaskItem]] = None
     observaciones: Optional[List[str]] = None
+    empresa_cliente: Optional[str] = None
+    cliente_email: Optional[str] = None
+    restriccion_horaria: Optional[str] = None
+    nota_especial: Optional[str] = None
+    # Trabajo realizado por categoria de comision (las mismas 12 categorias
+    # de Comisiones): [{"categoria": "Persiana Exterior", "cantidad": 4}, ...].
+    # Al marcar la tarea "completada" se genera automaticamente una comision
+    # por cada item (la categoria debe existir en reglas_comision para el
+    # rol del trabajador asignado).
+    items_comision: Optional[List[ComisionItem]] = None
 
 
 class TaskUpdate(BaseModel):
@@ -38,6 +53,7 @@ class TaskUpdate(BaseModel):
     asignado_a: Optional[int] = None
     fecha_tarea: Optional[date] = None
     prioridad: Optional[str] = None
+    items_comision: Optional[List[ComisionItem]] = None
 
 
 class TaskResponse(BaseModel):
@@ -67,5 +83,14 @@ class TaskResponse(BaseModel):
     vendedor_nombre: Optional[str] = None
     items: Optional[List[Any]] = None
     observaciones: Optional[List[str]] = None
+    empresa_cliente: Optional[str] = None
+    cliente_email: Optional[str] = None
+    restriccion_horaria: Optional[str] = None
+    nota_especial: Optional[str] = None
+    tracking_token: Optional[str] = None
+    tracking_activo: Optional[bool] = False
+    items_comision: Optional[List[Any]] = None
+    comision_generada: Optional[bool] = False
+    cliente_id: Optional[int] = None
 
     model_config = {"from_attributes": True}

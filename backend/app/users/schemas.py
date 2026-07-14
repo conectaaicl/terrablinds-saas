@@ -9,6 +9,7 @@ class UserCreate(BaseModel):
     nombre: str
     rol: Literal["jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "bodegas"]
     tenant_id: str
+    telefono: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -17,10 +18,20 @@ class UserResponse(BaseModel):
     nombre: str
     rol: str
     tenant_id: str
+    telefono: Optional[str] = None
     activo: bool
+    telefono: Optional[str] = None
+    puede_ver_comisiones: bool = True
 
     model_config = {"from_attributes": True}
 
 
 class UserToggle(BaseModel):
     activo: bool
+
+
+class UserUpdate(BaseModel):
+    nombre: Optional[str] = None
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    puede_ver_comisiones: Optional[bool] = None

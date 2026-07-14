@@ -87,6 +87,7 @@ def _order_to_response(o) -> OrderResponse:
 async def list_orders(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
+    client_id: int | None = None,
     token_data: TokenData = Depends(require_roles(
         "jefe", "gerente", "coordinador", "vendedor", "fabricante", "instalador", "bodegas", "superadmin"
     )),
@@ -97,6 +98,7 @@ async def list_orders(
         tenant_id=token_data.tenant_id,
         user_id=token_data.user_id,
         role=token_data.role,
+        client_id=client_id,
     )
     page = orders[skip: skip + limit]
     return [_order_to_response(o) for o in page]
@@ -107,7 +109,9 @@ async def list_orders(
 async def create_order(
     request: Request,
     data: OrderCreate,
-    token_data: TokenData = Depends(require_roles("jefe", "gerente", "vendedor", "coordinador")),
+    # "vendedor" ya no crea ordenes directo: su unico camino es Cotizacion -> Convertir a Orden,
+    # para no duplicar el concepto de "cotizacion" (ver /cotizaciones/{id}/convertir).
+    token_data: TokenData = Depends(require_roles("jefe", "gerente", "coordinador")),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
     user_nombre = await _resolve_user_nombre(db, token_data.user_id)

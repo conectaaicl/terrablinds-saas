@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Date, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,3 +36,20 @@ class DailyTask(Base):
     vendedor_nombre: Mapped[str | None] = mapped_column(String(200))
     items: Mapped[list | None] = mapped_column(JSONB)              # [{descripcion, ubicacion?}]
     observaciones: Mapped[list | None] = mapped_column(JSONB)      # ["string", ...]
+    empresa_cliente: Mapped[str | None] = mapped_column(String(200))
+    cliente_email: Mapped[str | None] = mapped_column(String(200))
+    restriccion_horaria: Mapped[str | None] = mapped_column(String(200))
+    nota_especial: Mapped[str | None] = mapped_column(Text)
+    tracking_token: Mapped[str | None] = mapped_column(String(64))
+    tracking_activo: Mapped[bool | None] = mapped_column(Boolean, default=False)
+
+    # ── Comision automatica al completar la tarea ────────────────
+    # Lista de items del trabajo realizado: [{"categoria": "Roller", "cantidad": 4}, ...]
+    # Cada categoria debe existir en reglas_comision para el rol del asignado.
+    items_comision: Mapped[list | None] = mapped_column(JSONB)
+    comision_generada: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # ── Vinculo con el CRM ────────────────────────────────────────
+    # Cliente (tabla clients) encontrado o creado automaticamente a partir de
+    # cliente_nombre/cliente_telefono al crear la tarea. Sin FK dura, igual que order_id.
+    cliente_id: Mapped[int | None] = mapped_column(Integer)

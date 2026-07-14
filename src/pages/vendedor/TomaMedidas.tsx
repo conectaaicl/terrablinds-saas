@@ -8,7 +8,7 @@ import { TIPOS_PRODUCTO, TELAS, COLORES } from '../../types';
 import { Spinner } from '../../components/LoadingStates';
 import {
   Plus, Trash2, ArrowLeft, Ruler, CheckCircle, ExternalLink,
-  Camera, X, Zap, FileText, Settings, ChevronDown, ChevronUp,
+  Camera, X, FileText, Settings, ChevronDown, ChevronUp,
   Loader2,
 } from 'lucide-react';
 
@@ -32,7 +32,10 @@ type Ambiente = {
   tipo_sistema: string;
   tipo_soporte: string;
   tiene_motor: boolean;
-  foto?: string; // base64
+  motor_lado: 'derecha' | 'izquierda' | '';
+  cadena_lado: 'derecha' | 'izquierda' | '';
+  caida_tela: 'anterior' | 'posterior' | '';
+  foto?: string;
 };
 
 const ambienteVacio = (): Ambiente => ({
@@ -48,7 +51,124 @@ const ambienteVacio = (): Ambiente => ({
   tipo_sistema: 'cadena',
   tipo_soporte: 'riel simple',
   tiene_motor: false,
+  motor_lado: '',
+  cadena_lado: '',
+  caida_tela: '',
 });
+
+// ── Editable option lists (saved to localStorage) ─────────────────────────
+function useEditableOptions(key: string, defaults: string[]) {
+  const sk = 'medidas_opts_' + key;
+  const [opts, setOpts] = useState<string[]>(() => {
+    try { const s = localStorage.getItem(sk); return s ? JSON.parse(s) : defaults; } catch { return defaults; }
+  });
+  const save = (next: string[]) => { setOpts(next); try { localStorage.setItem(sk, JSON.stringify(next)); } catch {} };
+  const addOpt = (val: string) => { const t = val.trim(); if (!t || opts.includes(t)) return; save([...opts, t]); };
+  const removeOpt = (val: string) => save(opts.filter(o => o !== val));
+  return { opts, addOpt, removeOpt };
+}
+
+// ── Combo input: free text + datalist + manage list ───────────────────────
+function ComboInput({ label, listId, value, opts, onChange, onAdd, onRemove }: {
+  label: string; listId: string; value: string; opts: string[];
+  onChange: (v: string) => void; onAdd: (v: string) => void; onRemove: (v: string) => void;
+}) {
+  const [managing, setManaging] = useState(false);
+  const [newOpt, setNewOpt] = useState('');
+
+  const add = () => { if (newOpt.trim()) { onAdd(newOpt.trim()); setNewOpt(''); } };
+
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <label className="text-xs font-medium text-slate-600">{label}</label>
+        <button type="button" onClick={() => setManaging(m => !m)}
+          className="text-[10px] text-blue-500 hover:text-blue-700 font-medium">
+          {managing ? 'Cerrar' : '⚙ Gestionar'}
+        </button>
+      </div>
+      <input
+        value={value}
+        list={listId}
+        onChange={e => onChange(e.target.value)}
+        placeholder="Selecciona o escribe..."
+        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+      />
+      <datalist id={listId}>
+        {opts.map(o => <option key={o} value={o} />)}
+      </datalist>
+      {managing && (
+        <div className="mt-2 rounded-xl border border-blue-100 bg-blue-50 p-3 space-y-2">
+          <div className="flex gap-2">
+            <input value={newOpt} onChange={e => setNewOpt(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), add())}
+              placeholder="Nueva opción..."
+              className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-400" />
+            <button type="button" onClick={add}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
+              +
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {opts.map(o => (
+              <span key={o} className="flex items-center gap-1 rounded-full bg-white border border-slate-200 px-2 py-0.5 text-xs text-slate-700">
+                {o}
+                <button type="button" onClick={() => onRemove(o)}
+                  className="text-red-400 hover:text-red-600 leading-none">×</button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Lado toggle (Derecha / Izquierda) ────────────────────────────────────
+function LadoToggle({ label, value, onChange }: {
+  label: string; value: '' | 'derecha' | 'izquierda'; onChange: (v: '' | 'derecha' | 'izquierda') => void;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-medium text-slate-600">{label}</label>
+      <div className="flex gap-2">
+        {(['derecha', 'izquierda'] as const).map(lado => (
+          <button key={lado} type="button"
+            onClick={() => onChange(value === lado ? '' : lado)}
+            className={"flex-1 rounded-xl border-2 py-1.5 text-xs font-bold capitalize transition " +
+              (value === lado
+                ? "border-blue-500 bg-blue-500 text-white"
+                : "border-slate-200 bg-white text-slate-500 hover:border-blue-300")}>
+            {lado === 'derecha' ? '→ Derecha' : '← Izquierda'}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Caída toggle (Anterior / Posterior) ──────────────────────────────────
+function CaidaToggle({ value, onChange }: {
+  value: '' | 'anterior' | 'posterior'; onChange: (v: '' | 'anterior' | 'posterior') => void;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-medium text-slate-600">Caída de tela</label>
+      <div className="flex gap-2">
+        {(['anterior', 'posterior'] as const).map(tipo => (
+          <button key={tipo} type="button"
+            onClick={() => onChange(value === tipo ? '' : tipo)}
+            className={"flex-1 rounded-xl border-2 py-1.5 text-xs font-bold capitalize transition " +
+              (value === tipo
+                ? "border-violet-500 bg-violet-500 text-white"
+                : "border-slate-200 bg-white text-slate-500 hover:border-violet-300")}>
+            {tipo === 'anterior' ? '◤ Anterior' : '◥ Posterior'}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ── Camera capture ────────────────────────────────────────────────────────────
 
@@ -155,17 +275,19 @@ export default function TomaMedidas() {
   const [ambientes, setAmbientes] = useState<Ambiente[]>([ambienteVacio()]);
   const [saving, setSaving] = useState(false);
   const [savedCotId, setSavedCotId] = useState<string | null>(null);
-  const [savedOtId, setSavedOtId] = useState<number | null>(null);
   const [cameraFor, setCameraFor] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<number[]>([0]);
 
   const { data: clientes, loading: loadingCli } = useApi(() => api.getClients());
   const { execute: crearCliente } = useMutation(api.createClient);
   const { execute: crearCotizacion } = useMutation(api.createCotizacion);
-  const { execute: crearOrden } = useMutation(api.createOrder);
 
   const clienteList: any[] = clientes || [];
   const total = ambientes.reduce((s, a) => s + (a.precio || 0), 0);
+
+  const optsInstalacion = useEditableOptions('instalacion', TIPOS_INSTALACION);
+  const optsSistema     = useEditableOptions('sistema', TIPOS_SISTEMA);
+  const optsSoporte     = useEditableOptions('soporte', TIPOS_SOPORTE);
 
   const addAmbiente = () => {
     const next = ambientes.length;
@@ -187,17 +309,26 @@ export default function TomaMedidas() {
   };
 
   const buildProductos = () =>
-    ambientes.filter(a => a.precio > 0).map(a => ({
-      tipo: a.tipo,
-      ancho: a.ancho,
-      alto: a.alto,
-      tela: a.tela,
-      color: a.color,
-      precio: a.precio,
-      ubicacion: a.nombre,
-      accionamiento: `${a.tipo_sistema}${a.tiene_motor ? ' + motor' : ''} · ${a.tipo_instalacion} · ${a.tipo_soporte}`,
-      notas: a.observaciones || undefined,
-    }));
+    ambientes.filter(a => a.precio > 0).map(a => {
+      const motorStr = a.tiene_motor
+        ? ` + motor${a.motor_lado ? ' ' + a.motor_lado : ''}`
+        : '';
+      const cadenaStr = (a.tipo_sistema === 'cadena' || a.tipo_sistema === 'cordon' || a.tipo_sistema === 'cordón') && a.cadena_lado
+        ? ` (${a.cadena_lado})`
+        : '';
+      const caidaStr = a.caida_tela ? ` · caida ${a.caida_tela}` : '';
+      return {
+        tipo: a.tipo,
+        ancho: a.ancho,
+        alto: a.alto,
+        tela: a.tela,
+        color: a.color,
+        precio: a.precio,
+        ubicacion: a.nombre,
+        accionamiento: `${a.tipo_sistema}${cadenaStr}${motorStr} · ${a.tipo_instalacion} · ${a.tipo_soporte}${caidaStr}`,
+        notas: a.observaciones || undefined,
+      };
+    });
 
   const getOrCreateClient = async () => {
     if (isNew) {
@@ -228,55 +359,25 @@ export default function TomaMedidas() {
     }
   };
 
-  const crearOT = async () => {
-    if (!user || !canSave) return;
-    setSaving(true);
-    try {
-      const clienteId = await getOrCreateClient();
-      if (!clienteId) return;
-      const productos = buildProductos();
-      const ot = await crearOrden({
-        cliente_id: clienteId,
-        productos,
-        precio_total: total,
-      });
-      if (ot) setSavedOtId(ot.id);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const clienteSeleccionado = clienteList.find(c => c.id === selCliente);
   const direccionCliente = isNew ? nc.direccion : clienteSeleccionado?.direccion;
 
   if (loadingCli) return <Spinner />;
 
   // Success state
-  if (savedCotId || savedOtId) {
+  if (savedCotId) {
     return (
       <div className="mx-auto max-w-lg space-y-5">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
           <CheckCircle className="mx-auto mb-3 text-emerald-500" size={40} />
-          <h2 className="text-lg font-bold text-emerald-800">
-            {savedOtId ? '¡Orden de Trabajo creada!' : '¡Cotización guardada!'}
-          </h2>
-          <p className="mt-1 text-sm text-emerald-700">
-            {savedOtId ? 'La OT fue creada y está lista para producción.' : 'El borrador fue guardado. Puedes enviarlo al cliente.'}
-          </p>
+          <h2 className="text-lg font-bold text-emerald-800">¡Cotización guardada!</h2>
+          <p className="mt-1 text-sm text-emerald-700">El borrador fue guardado. Puedes enviarlo al cliente.</p>
           <div className="mt-4 flex flex-col gap-2">
-            {savedCotId && (
-              <button onClick={() => nav(`/vendedor/cotizacion/${savedCotId}`)}
-                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
-                <FileText size={15} /> Ver Cotización
-              </button>
-            )}
-            {savedOtId && (
-              <button onClick={() => nav(`/jefe/ordenes/${savedOtId}`)}
-                className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
-                <Zap size={15} /> Ver Orden de Trabajo
-              </button>
-            )}
-            <button onClick={() => { setSavedCotId(null); setSavedOtId(null); setAmbientes([ambienteVacio()]); setExpanded([0]); }}
+            <button onClick={() => nav(`/vendedor/cotizacion/${savedCotId}`)}
+              className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+              <FileText size={15} /> Ver Cotización
+            </button>
+            <button onClick={() => { setSavedCotId(null); setAmbientes([ambienteVacio()]); setExpanded([0]); }}
               className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
               Nueva medición
             </button>
@@ -294,7 +395,7 @@ export default function TomaMedidas() {
 
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Toma de Medidas</h1>
-        <p className="text-sm text-slate-500">Registra las medidas en terreno para generar cotización u OT directamente</p>
+        <p className="text-sm text-slate-500">Registra las medidas en terreno para generar la cotización</p>
       </div>
 
       {/* Cliente */}
@@ -384,28 +485,14 @@ export default function TomaMedidas() {
                 </div>
 
                 {/* Technical details */}
-                <div className="rounded-xl bg-slate-50 p-3 space-y-3">
-                  <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
-                    <Settings size={12} /> Detalles Técnicos
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <Sel label="Tipo instalación" value={a.tipo_instalacion} opts={TIPOS_INSTALACION}
-                      onChange={v => updateAmbiente(i, 'tipo_instalacion', v)} />
-                    <Sel label="Sistema" value={a.tipo_sistema} opts={TIPOS_SISTEMA}
-                      onChange={v => updateAmbiente(i, 'tipo_sistema', v)} />
-                    <Sel label="Tipo soporte" value={a.tipo_soporte} opts={TIPOS_SOPORTE}
-                      onChange={v => updateAmbiente(i, 'tipo_soporte', v)} />
-                  </div>
-                  <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-                    <div
-                      onClick={() => updateAmbiente(i, 'tiene_motor', !a.tiene_motor)}
-                      className={`relative h-5 w-9 rounded-full transition-colors ${a.tiene_motor ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                      <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${a.tiene_motor ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                    </div>
-                    <span className="font-medium text-slate-700">Incluye motor</span>
-                    {a.tiene_motor && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">Motor</span>}
-                  </label>
-                </div>
+                <TechDetails
+                  a={a}
+                  idx={i}
+                  update={(field, val) => updateAmbiente(i, field, val)}
+                  optsInstalacion={optsInstalacion}
+                  optsSistema={optsSistema}
+                  optsSoporte={optsSoporte}
+                />
 
                 {/* Observaciones */}
                 <div>
@@ -460,20 +547,13 @@ export default function TomaMedidas() {
           <p className="text-base font-semibold text-slate-700">Total estimado</p>
           <p className="text-2xl font-black text-slate-900">{fmt(total)}</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <button onClick={guardarCotizacion} disabled={!canSave || saving}
-            className="flex items-center justify-center gap-2 rounded-xl border-2 border-emerald-500 px-4 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 transition-colors">
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
-            Guardar como Cotización
-          </button>
-          <button onClick={crearOT} disabled={!canSave || saving}
-            className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors">
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
-            Crear OT Directamente
-          </button>
-        </div>
+        <button onClick={guardarCotizacion} disabled={!canSave || saving}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+          {saving ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
+          Guardar como Cotización
+        </button>
         <p className="mt-2 text-center text-xs text-slate-400">
-          "Crear OT" genera la orden de producción directamente sin pasar por cotización
+          Toda venta pasa primero por Cotización. Cuando el cliente acepta, se convierte en Orden de Trabajo desde la pantalla de Cotizaciones.
         </p>
       </div>
 
@@ -484,6 +564,89 @@ export default function TomaMedidas() {
           onClose={() => setCameraFor(null)}
         />
       )}
+    </div>
+  );
+}
+
+// ── TechDetails component ────────────────────────────────────────────────────
+
+function TechDetails({ a, idx, update, optsInstalacion, optsSistema, optsSoporte }: {
+  a: Ambiente; idx: number;
+  update: (field: keyof Ambiente, val: any) => void;
+  optsInstalacion: ReturnType<typeof useEditableOptions>;
+  optsSistema: ReturnType<typeof useEditableOptions>;
+  optsSoporte: ReturnType<typeof useEditableOptions>;
+}) {
+  const esCadena = a.tipo_sistema === 'cadena' || a.tipo_sistema === 'cordón' || a.tipo_sistema === 'cordon';
+
+  return (
+    <div className="rounded-xl bg-slate-50 p-3 space-y-3">
+      <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
+        <Settings size={12} /> Detalles Técnicos
+      </p>
+
+      {/* Row 1: Instalación + Soporte */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ComboInput
+          label="Tipo de instalación"
+          listId={"list-instalacion-" + idx}
+          value={a.tipo_instalacion}
+          opts={optsInstalacion.opts}
+          onChange={v => update('tipo_instalacion', v)}
+          onAdd={optsInstalacion.addOpt}
+          onRemove={optsInstalacion.removeOpt}
+        />
+        <ComboInput
+          label="Tipo de soporte"
+          listId={"list-soporte-" + idx}
+          value={a.tipo_soporte}
+          opts={optsSoporte.opts}
+          onChange={v => update('tipo_soporte', v)}
+          onAdd={optsSoporte.addOpt}
+          onRemove={optsSoporte.removeOpt}
+        />
+      </div>
+
+      {/* Row 2: Sistema + lado cadena */}
+      <ComboInput
+        label="Sistema de accionamiento"
+        listId={"list-sistema-" + idx}
+        value={a.tipo_sistema}
+        opts={optsSistema.opts}
+        onChange={v => update('tipo_sistema', v)}
+        onAdd={optsSistema.addOpt}
+        onRemove={optsSistema.removeOpt}
+      />
+      {esCadena && (
+        <LadoToggle
+          label="Lado de la cadena"
+          value={a.cadena_lado}
+          onChange={v => update('cadena_lado', v)}
+        />
+      )}
+
+      {/* Caída de tela */}
+      <CaidaToggle value={a.caida_tela} onChange={v => update('caida_tela', v)} />
+
+      {/* Motor */}
+      <div className="space-y-2">
+        <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+          <div
+            onClick={() => update('tiene_motor', !a.tiene_motor)}
+            className={"relative h-5 w-9 rounded-full transition-colors " + (a.tiene_motor ? 'bg-blue-600' : 'bg-slate-300')}>
+            <div className={"absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform " + (a.tiene_motor ? 'translate-x-4' : 'translate-x-0.5')} />
+          </div>
+          <span className="font-medium text-slate-700">Incluye motor</span>
+          {a.tiene_motor && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">Motor</span>}
+        </label>
+        {a.tiene_motor && (
+          <LadoToggle
+            label="Lado del motor"
+            value={a.motor_lado}
+            onChange={v => update('motor_lado', v)}
+          />
+        )}
+      </div>
     </div>
   );
 }

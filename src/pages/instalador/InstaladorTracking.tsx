@@ -4,7 +4,7 @@ import { useApi } from '../../hooks/useApi';
 import {
   Navigation, MapPin, Radio, CheckCircle2, Clock,
   Copy, ExternalLink, RefreshCw, AlertTriangle, Wrench,
-  Phone, User,
+  Phone, User, MessageCircle,
 } from 'lucide-react';
 
 interface InstaladorOrden {
@@ -81,6 +81,191 @@ function useGpsWatch(orderId: number | null, active: boolean) {
   }, [active]);
 
   return { gpsError, position };
+}
+
+
+// ── GPS watch for daily tasks ─────────────────────────────
+function useGpsTaskWatch(taskId: string | null, active: boolean) {
+  const watchId = useRef<number | null>(null);
+  const [gpsError, setGpsError] = useState('');
+  const [position, setPosition] = useState<{ lat: number; lon: number } | null>(null);
+
+  const start = useCallback(() => {
+    if (!navigator.geolocation || !taskId) return;
+    setGpsError('');
+    watchId.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lon, accuracy, speed, heading } = pos.coords;
+        setPosition({ lat, lon });
+        api.sendGpsPingWithTask({
+          lat, lon,
+          precision_m: Math.round(accuracy),
+          velocidad_kmh: speed ? speed * 3.6 : undefined,
+          heading: heading ?? undefined,
+          task_id: taskId,
+        }).catch(() => {});
+      },
+      (err) => setGpsError('GPS: ' + err.message),
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 30_000 }
+    );
+  }, [taskId]);
+
+  const stop = useCallback(() => {
+    if (watchId.current !== null) {
+      navigator.geolocation.clearWatch(watchId.current);
+      watchId.current = null;
+    }
+    setPosition(null);
+  }, []);
+
+  useEffect(() => {
+    if (active) start();
+    else stop();
+    return stop;
+  }, [active]);
+
+  return { gpsError, position };
+}
+
+
+// ── Tarea Card ───────────────────────────────────────────────
+function TareaCard({
+  tarea,
+  onActivate,
+  onDeactivate,
+  busy,
+}: {
+  tarea: any;
+  onActivate: (id: string) => void;
+  onDeactivate: (id: string) => void;
+  busy: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+  const { gpsError, position } = useGpsTaskWatch(tarea.id, tarea.tracking_activo);
+
+  const TIPO_EMOJI: Record<string, string> = {
+    instalacion: '🪟', reunion: '💼', servicio_tecnico: '🔧',
+    mantencion: '🔩', retiro: '📦', otro: '📋',
+  };
+
+  const copyLink = () => {
+    if (!tarea.tracking_url) return;
+    navigator.clipboard.writeText(tarea.tracking_url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
+      tarea.tracking_activo ? 'border-emerald-200 shadow-emerald-100' : 'border-slate-100'
+    }`}>
+      {tarea.tracking_activo && <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />}
+      <div className="p-4 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-xl shrink-0 ${
+              tarea.tracking_activo ? 'bg-emerald-50' : 'bg-slate-100'
+            }`}>
+              {TIPO_EMOJI[tarea.tipo_tarea || 'otro'] || '📋'}
+            </div>
+            <div>
+              <p className="font-bold text-slate-900 text-sm">
+                {tarea.hora && <span className="text-slate-500 mr-1">{tarea.hora}</span>}
+                {tarea.cliente_nombre || tarea.titulo}
+              </p>
+              <span className="text-[11px] text-slate-500">{tarea.tipo_tarea || 'tarea'}</span>
+            </div>
+          </div>
+          {tarea.tracking_activo && (
+            <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-semibold animate-pulse">
+              <Radio size={13} />
+              <span>Transmitiendo</span>
+            </div>
+          )}
+        </div>
+
+        {tarea.direccion && (
+          <div className="flex items-start gap-2 text-sm text-slate-500">
+            <MapPin size={13} className="text-slate-400 mt-0.5 shrink-0" />
+            <a href={'https://waze.com/ul?q=' + encodeURIComponent(tarea.direccion)}
+              target="_blank" rel="noopener noreferrer"
+              className="hover:text-blue-600">{tarea.direccion}</a>
+          </div>
+        )}
+        {tarea.cliente_telefono && (
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <Phone size={13} className="text-slate-400 shrink-0" />
+            <a href={'tel:' + tarea.cliente_telefono} className="hover:text-blue-600">{tarea.cliente_telefono}</a>
+          </div>
+        )}
+
+        {position && (
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+            <Navigation size={12} className="shrink-0" />
+            <span className="font-mono">{position.lat.toFixed(5)}, {position.lon.toFixed(5)}</span>
+            <a href={'https://maps.google.com/?q=' + position.lat + ',' + position.lon}
+              target="_blank" rel="noopener noreferrer"
+              className="ml-auto text-emerald-600 hover:text-emerald-800">
+              <ExternalLink size={12} />
+            </a>
+          </div>
+        )}
+        {gpsError && (
+          <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">
+            <AlertTriangle size={12} /> {gpsError}
+          </div>
+        )}
+
+        {tarea.tracking_activo && tarea.tracking_url && (
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 space-y-2">
+            <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">Enlace para el cliente</p>
+            <div className="flex items-center gap-2">
+              <p className="flex-1 truncate text-xs text-emerald-800 font-mono bg-white rounded-lg px-2 py-1.5 border border-emerald-100">
+                {tarea.tracking_url}
+              </p>
+              <button onClick={copyLink}
+                className="flex items-center gap-1 shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors bg-emerald-600 text-white hover:bg-emerald-700">
+                {copied ? <CheckCircle2 size={12} /> : <Copy size={12} />}
+                {copied ? 'Copiado' : 'Copiar'}
+              </button>
+              <a href={tarea.tracking_url} target="_blank" rel="noopener noreferrer"
+                className="shrink-0 rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors">
+                <ExternalLink size={14} />
+              </a>
+            </div>
+            {tarea.cliente_telefono && (
+              <a
+                href={'https://wa.me/' + tarea.cliente_telefono.replace(/[^0-9]/g, '') + '?text=' + encodeURIComponent(
+                  'Hola ' + (tarea.cliente_nombre || '') + ', su técnico está en camino. Puede ver su ubicación en tiempo real aquí: ' + tarea.tracking_url
+                )}
+                target="_blank" rel="noopener noreferrer"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition">
+                <MessageCircle size={13} /> Reenviar por WhatsApp al cliente
+              </a>
+            )}
+          </div>
+        )}
+
+        <div>
+          {tarea.tracking_activo ? (
+            <button onClick={() => onDeactivate(tarea.id)} disabled={busy}
+              className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-colors bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50">
+              {busy ? <RefreshCw size={15} className="animate-spin" /> : <Radio size={15} />}
+              Detener tracking
+            </button>
+          ) : (
+            <button onClick={() => onActivate(tarea.id)} disabled={busy}
+              className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-colors text-white disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, var(--brand-light), var(--brand-primary))' }}>
+              {busy ? <RefreshCw size={15} className="animate-spin" /> : <Navigation size={15} />}
+              Salir — Activar GPS
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Orden Card ───────────────────────────────────────────────
@@ -258,6 +443,8 @@ function OrdenCard({
 export default function InstaladorTracking() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [ordenes, setOrdenes] = useState<InstaladorOrden[]>([]);
+  const [tareas, setTareas] = useState<any[]>([]);
+  const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -265,16 +452,51 @@ export default function InstaladorTracking() {
     setLoading(true);
     setError('');
     try {
-      const data = await api.getInstaladorOrders();
-      setOrdenes(data || []);
+      const [ord, tar] = await Promise.all([
+        api.getInstaladorOrders(),
+        api.getInstaladorTasks(),
+      ]);
+      setOrdenes(ord || []);
+      setTareas(tar || []);
     } catch {
-      setError('Error al cargar órdenes');
+      setError('Error al cargar datos');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => { loadOrdenes(); }, []);
+
+  const handleActivateTask = async (taskId: string) => {
+    setBusyTaskId(taskId);
+    try {
+      const res = await api.activateTaskTracking(taskId);
+      setTareas(prev =>
+        prev.map(t => t.id === taskId
+          ? { ...t, tracking_activo: true, tracking_token: res.tracking_token, tracking_url: res.tracking_url }
+          : t
+        )
+      );
+    } catch {
+      alert('Error al activar tracking');
+    } finally {
+      setBusyTaskId(null);
+    }
+  };
+
+  const handleDeactivateTask = async (taskId: string) => {
+    setBusyTaskId(taskId);
+    try {
+      await api.deactivateTaskTracking(taskId);
+      setTareas(prev =>
+        prev.map(t => t.id === taskId ? { ...t, tracking_activo: false } : t)
+      );
+    } catch {
+      alert('Error al detener tracking');
+    } finally {
+      setBusyTaskId(null);
+    }
+  };
 
   const handleActivate = async (orderId: number) => {
     setBusyId(orderId);
@@ -309,6 +531,7 @@ export default function InstaladorTracking() {
   };
 
   const activeCount = ordenes.filter(o => o.tracking_activo).length;
+  const activeTaskCount = tareas.filter(t => t.tracking_activo).length;
 
   return (
     <div className="space-y-5 max-w-lg mx-auto">
@@ -331,7 +554,7 @@ export default function InstaladorTracking() {
       </div>
 
       {/* Active tracking banner */}
-      {activeCount > 0 && (
+      {(activeCount > 0 || activeTaskCount > 0) && (
         <div className="flex items-center gap-3 rounded-2xl bg-emerald-500 px-4 py-3 text-white shadow-lg shadow-emerald-200">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
             <Radio size={16} className="animate-pulse" />
@@ -339,7 +562,7 @@ export default function InstaladorTracking() {
           <div className="flex-1">
             <p className="font-bold text-sm">Tracking activo</p>
             <p className="text-xs text-emerald-100">
-              Transmitiendo ubicación GPS · {activeCount} orden{activeCount > 1 ? 'es' : ''}
+              Transmitiendo ubicación GPS · {activeCount + activeTaskCount} activo{(activeCount + activeTaskCount) > 1 ? 's' : ''}
             </p>
           </div>
         </div>
@@ -356,12 +579,12 @@ export default function InstaladorTracking() {
           <AlertTriangle size={18} />
           <p className="text-sm">{error}</p>
         </div>
-      ) : ordenes.length === 0 ? (
+      ) : ordenes.length === 0 && tareas.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 text-slate-400 gap-3 bg-white rounded-2xl border border-dashed border-slate-200">
           <Wrench size={36} className="opacity-30" />
           <div className="text-center">
             <p className="font-medium">Sin instalaciones asignadas</p>
-            <p className="text-sm">No tienes órdenes en estado activo por ahora</p>
+            <p className="text-sm">No tienes órdenes ni tareas activas hoy</p>
           </div>
         </div>
       ) : (
@@ -378,22 +601,40 @@ export default function InstaladorTracking() {
         </div>
       )}
 
+      {/* Tareas del Día */}
+      {!loading && tareas.length > 0 && (
+        <div>
+          <h2 className="mb-3 text-base font-bold text-slate-800">Agenda de Hoy</h2>
+          <div className="space-y-4">
+            {tareas.map(tarea => (
+              <TareaCard
+                key={tarea.id}
+                tarea={tarea}
+                onActivate={handleActivateTask}
+                onDeactivate={handleDeactivateTask}
+                busy={busyTaskId === tarea.id}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* How it works */}
-      {!loading && ordenes.length > 0 && (
+      {!loading && (ordenes.length > 0 || tareas.length > 0) && (
         <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 space-y-2">
           <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">¿Cómo funciona?</p>
           <ol className="space-y-1.5 text-xs text-slate-500">
             <li className="flex items-start gap-2">
               <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-300 text-[10px] font-bold text-white">1</span>
-              Presiona <strong className="text-slate-700">Salir a instalar</strong> cuando vayas en camino
+              Presiona <strong className="text-slate-700">Salir a instalar</strong> (o marca la OT/tarea como en camino desde su pantalla)
             </li>
             <li className="flex items-start gap-2">
               <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-300 text-[10px] font-bold text-white">2</span>
-              El cliente recibe automáticamente el enlace de seguimiento por WhatsApp
+              El GPS se activa solo y el cliente recibe automático el link por WhatsApp — no hace falta hacer nada más
             </li>
             <li className="flex items-start gap-2">
               <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-300 text-[10px] font-bold text-white">3</span>
-              También puedes copiar el enlace y enviarlo manualmente
+              El cliente abre el link y ve tu ubicación en tiempo real (se actualiza sola)
             </li>
             <li className="flex items-start gap-2">
               <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-300 text-[10px] font-bold text-white">4</span>

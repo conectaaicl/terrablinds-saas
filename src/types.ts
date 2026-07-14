@@ -272,6 +272,12 @@ export interface DailyTask {
   vendedor_nombre?: string;
   items?: TaskItem[];
   observaciones?: string[];
+  empresa_cliente?: string;
+  cliente_email?: string;
+  restriccion_horaria?: string;
+  nota_especial?: string;
+  tracking_token?: string | null;
+  tracking_activo?: boolean;
 }
 
 export const PRIORIDAD_CONFIG = {

@@ -25,13 +25,17 @@ class OrderService:
         self.repo = OrderRepository(db)
         self.db = db
 
-    async def list_orders(self, tenant_id: str, user_id: int, role: str) -> list[Order]:
+    async def list_orders(
+        self, tenant_id: str, user_id: int, role: str, client_id: int | None = None
+    ) -> list[Order]:
         if role == RoleEnum.vendedor:
-            return await self.repo.get_filtered(tenant_id, vendedor_id=user_id)
+            return await self.repo.get_filtered(tenant_id, vendedor_id=user_id, cliente_id=client_id)
         if role == RoleEnum.fabricante:
-            return await self.repo.get_filtered(tenant_id, fabricante_id=user_id)
+            return await self.repo.get_filtered(tenant_id, fabricante_id=user_id, cliente_id=client_id)
         if role == RoleEnum.instalador:
-            return await self.repo.get_filtered(tenant_id, instalador_id=user_id)
+            return await self.repo.get_filtered(tenant_id, instalador_id=user_id, cliente_id=client_id)
+        if client_id is not None:
+            return await self.repo.get_filtered(tenant_id, cliente_id=client_id)
         return await self.repo.get_by_tenant(tenant_id)
 
     async def get_order(self, order_id: int, tenant_id: str) -> Order:
@@ -42,6 +46,7 @@ class OrderService:
 
     async def create_order(
         self, data: OrderCreate, user_id: int, user_nombre: str, tenant_id: str
+    , estado_inicial: str = "cotizacion"
     ) -> Order:
         numero = await self.repo.get_next_numero(tenant_id)
         order = Order(
@@ -49,7 +54,7 @@ class OrderService:
             tenant_id=tenant_id,
             cliente_id=data.cliente_id,
             vendedor_id=user_id,
-            estado="cotizacion",
+            estado=estado_inicial,
             precio_total=data.precio_total,
             productos=[p.model_dump() for p in data.productos],
             cotizacion_id=data.cotizacion_id,
@@ -57,7 +62,7 @@ class OrderService:
         order = await self.repo.create(order)
         await self.repo.add_history(OrderHistory(
             order_id=order.id,
-            estado="cotizacion",
+            estado=estado_inicial,
             usuario_id=user_id,
             usuario_nombre=user_nombre,
             fecha=datetime.now(timezone.utc),

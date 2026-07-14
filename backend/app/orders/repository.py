@@ -61,6 +61,7 @@ class OrderRepository:
         vendedor_id: int | None = None,
         fabricante_id: int | None = None,
         instalador_id: int | None = None,
+        cliente_id: int | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[Order]:
@@ -77,6 +78,8 @@ class OrderRepository:
             q = q.where(Order.fabricante_id == fabricante_id)
         if instalador_id is not None:
             q = q.where(Order.instalador_id == instalador_id)
+        if cliente_id is not None:
+            q = q.where(Order.cliente_id == cliente_id)
         result = await self.db.execute(q)
         return list(result.scalars().unique().all())
 

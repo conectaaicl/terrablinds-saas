@@ -84,5 +84,8 @@ class User(Base):
     telefono: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     foto_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
+    # El jefe/gerente puede bloquear a un trabajador para que no vea sus propias
+    # comisiones/liquidaciones (por defecto todos pueden ver las suyas).
+    puede_ver_comisiones: Mapped[bool] = mapped_column(Boolean, default=True)
 
     tenant: Mapped[Optional[Tenant]] = relationship(back_populates="users")

@@ -89,6 +89,48 @@ function useGpsTracker(orderId: number | undefined, enabled: boolean) {
   return { tracking, startTracking, stopTracking, gpsError: error };
 }
 
+// ─── GPS Tracker para tareas diarias (hook) ───────────────────
+function useGpsTaskTracker(taskId: string | null | undefined, enabled: boolean) {
+  const [tracking, setTracking] = useState(false);
+  const watchId = useRef<number | null>(null);
+
+  const startTracking = useCallback(() => {
+    if (!navigator.geolocation || !taskId) return;
+    setTracking(true);
+    watchId.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        (api as any).sendGpsPingWithTask({
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          precision_m: Math.round(pos.coords.accuracy),
+          velocidad_kmh: pos.coords.speed ? pos.coords.speed * 3.6 : undefined,
+          heading: pos.coords.heading ?? undefined,
+          task_id: taskId,
+        }).catch(() => {});
+      },
+      () => setTracking(false),
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 30_000 }
+    );
+  }, [taskId]);
+
+  const stopTracking = useCallback(() => {
+    if (watchId.current !== null) {
+      navigator.geolocation.clearWatch(watchId.current);
+      watchId.current = null;
+    }
+    setTracking(false);
+  }, []);
+
+  useEffect(() => {
+    if (enabled && !tracking) startTracking();
+    if (!enabled && tracking) stopTracking();
+  }, [enabled]);
+
+  useEffect(() => () => stopTracking(), []);
+
+  return { tracking };
+}
+
 // ─── Fotos de Instalación ────────────────────────────────────
 function FotosInstalacion({ orderId }: { orderId: number }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -319,8 +361,20 @@ function MisTareasHoy() {
   const { execute: updateTask } = useMutation((id: string, data: any) => api.updateTask(id, data));
   const taskList: DailyTask[] = tareas || [];
 
+  // Tarea en curso ahora mismo: mientras dure, se transmite el GPS real.
+  const tareaEnProgreso = taskList.find(t => t.estado === 'en_progreso' && t.tracking_activo);
+  useGpsTaskTracker(tareaEnProgreso?.id, !!tareaEnProgreso);
+
   const cambiarEstado = async (id: string, estado: string) => {
     await updateTask(id, { estado });
+    if (estado === 'en_progreso') {
+      // Un solo paso: al iniciar la tarea se activa el GPS y se manda
+      // el link de seguimiento al cliente por WhatsApp automaticamente.
+      try { await (api as any).activateTaskTracking(id); } catch { /* no bloquea */ }
+    }
+    if (estado === 'completada') {
+      try { await (api as any).deactivateTaskTracking(id); } catch { /* no bloquea */ }
+    }
     refetch();
   };
 
@@ -654,8 +708,18 @@ export function DetalleInstalacion() {
 
   const doChange = useCallback(async (estado: string, notas?: string) => {
     const res = await cambiarEstado(estado, notas);
-    if (res) refetch();
-  }, [cambiarEstado, refetch]);
+    if (res) {
+      if (estado === 'en_camino') {
+        // Un solo paso: al salir a terreno se activa el GPS y se manda
+        // el link de seguimiento al cliente por WhatsApp automaticamente.
+        try {
+          const r: any = await (api as any).activateTracking(numId);
+          setTrackUrl(r?.tracking_url || r?.url || 'ok');
+        } catch { /* no bloquea el cambio de estado si falla */ }
+      }
+      refetch();
+    }
+  }, [cambiarEstado, refetch, numId]);
 
   const reportarProblema = useCallback(async () => {
     const notas = prompt('Describe el problema brevemente:');
@@ -707,7 +771,7 @@ export function DetalleInstalacion() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-slate-900">Compartir mi ubicación con el cliente</p>
-              <p className="text-xs text-slate-500">Opcional. El cliente recibe un link por WhatsApp para verte llegar en el mapa.</p>
+              <p className="text-xs text-slate-500">Se activa solo al presionar "Salir a Terreno". El cliente recibe un link por WhatsApp para verte llegar en el mapa. Tambien puedes activarla antes, manualmente.</p>
               {trackUrl ? (
                 <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5">
                   <p className="text-[12px] font-semibold text-emerald-700">✓ Ubicación compartida — el cliente recibió el link por WhatsApp</p>

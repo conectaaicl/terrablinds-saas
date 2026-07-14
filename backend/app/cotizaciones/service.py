@@ -31,6 +31,8 @@ def _to_out(c: Cotizacion) -> CotizacionOut:
         numero=c.numero,
         cliente_id=c.cliente_id,
         cliente_nombre=c.client.nombre if c.client else None,
+        cliente_telefono=c.client.telefono if c.client else None,
+        cliente_direccion=c.client.direccion if c.client else None,
         vendedor_id=c.vendedor_id,
         vendedor_nombre=c.vendedor.nombre if c.vendedor else None,
         estado=c.estado,
@@ -148,10 +150,10 @@ async def crear(
 
 
 async def listar(
-    db: AsyncSession, tenant_id: str, role: str, user_id: int
+    db: AsyncSession, tenant_id: str, role: str, user_id: int, client_id: int | None = None
 ) -> list[CotizacionOut]:
     vendedor_id = user_id if role == "vendedor" else None
-    cots = await repo.list_all(db, tenant_id, vendedor_id=vendedor_id)
+    cots = await repo.list_all(db, tenant_id, vendedor_id=vendedor_id, client_id=client_id)
     return [_to_out(c) for c in cots]
 
 
@@ -191,7 +193,7 @@ async def actualizar(
     if data.estado is not None:
         cot.estado = data.estado
     await db.flush()
-    await db.refresh(cot, ["client", "vendedor"])
+    await db.refresh(cot)
 
     if data.estado == "enviada" and prev_estado != "enviada":
         if cot.client and cot.client.email:
@@ -204,6 +206,7 @@ async def actualizar(
                     taller_nombre = tenant.nombre
             except Exception:
                 pass
+            tenant_branding = getattr(tenant, "branding", {}) or {}
             total_str = f"${cot.precio_total:,}".replace(",", ".")
             valid_str = cot.valid_until.strftime("%d/%m/%Y") if cot.valid_until else ""
             asyncio.ensure_future(
@@ -215,6 +218,8 @@ async def actualizar(
                     total=total_str,
                     notas=cot.notas or "",
                     valid_until=valid_str,
+                    logo_url=tenant_branding.get("logo_url", ""),
+                    telefono_taller=tenant_branding.get("telefono", ""),
                 )
             )
 
@@ -259,6 +264,11 @@ async def convertir_a_orden(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Ya fue convertida",
         )
+    if cot.estado != "aceptada":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se puede convertir una cotizacion en estado 'aceptada'",
+        )
 
     # 1. Check stock -- collect warnings, never abort the conversion
     productos = cot.productos or []
@@ -274,12 +284,12 @@ async def convertir_a_orden(
         precio_total=cot.precio_total,
     )
     svc = OrderService(db)
-    orden = await svc.create_order(order_data, user_id, tenant_id)
+    orden = await svc.create_order(order_data, user_id, "Sistema", tenant_id, estado_inicial="ot_creada")
 
     # 3. Link cotizacion to order and mark as converted
     cot.orden_id = orden.id
     cot.estado = "convertida"
     await db.flush()
-    await db.refresh(cot, ["client", "vendedor"])
+    await db.refresh(cot)
 
     return ConvertirResponse(cotizacion=_to_out(cot), stock_warnings=stock_warnings)

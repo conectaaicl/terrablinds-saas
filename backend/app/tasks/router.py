@@ -11,12 +11,14 @@ from datetime import date, datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import TokenData, require_roles
 from app.dependencies import get_db_for_tenant
 from app.models.task import DailyTask
+from app.models.client import Client
+from app.models.comision import Comision, ReglaComision
 from app.tasks.schemas import TaskCreate, TaskResponse, TaskUpdate
 from app.services.whatsapp import send_text
 
@@ -28,6 +30,7 @@ async def listar_tareas(
     fecha: date | None = Query(None),
     asignado_a: int | None = Query(None),
     estado: str | None = Query(None),
+    client_id: int | None = Query(None),
     token_data: TokenData = Depends(require_roles("jefe", "gerente", "coordinador", "superadmin")),
     db: AsyncSession = Depends(get_db_for_tenant),
 ):
@@ -39,6 +42,8 @@ async def listar_tareas(
         q = q.where(DailyTask.asignado_a == asignado_a)
     if estado:
         q = q.where(DailyTask.estado == estado)
+    if client_id:
+        q = q.where(DailyTask.cliente_id == client_id)
     q = q.order_by(DailyTask.fecha_tarea.desc(), DailyTask.created_at.desc())
 
     result = await db.execute(q)
@@ -99,6 +104,12 @@ async def crear_tarea(
         asignado_por=token_data.user_id,
         **data.model_dump(),
     )
+    if task.cliente_nombre or task.cliente_telefono:
+        task.cliente_id = await _find_or_create_cliente(
+            db, token_data.tenant_id,
+            task.cliente_nombre, task.cliente_telefono,
+            task.cliente_email, task.direccion, task.empresa_cliente,
+        )
     db.add(task)
     await db.commit()
     await db.refresh(task)
@@ -133,9 +144,61 @@ async def actualizar_tarea(
     if data.estado == "completada" and not task.completado_at:
         task.completado_at = datetime.now(timezone.utc)
 
+    if task.estado == "completada" and task.items_comision and not task.comision_generada:
+        await _generar_comisiones_tarea(db, task, token_data.tenant_id)
+
     await db.commit()
     await db.refresh(task)
     return await _enrich(db, task, token_data.tenant_id)
+
+
+async def _generar_comisiones_tarea(db: AsyncSession, task: DailyTask, tenant_id: str) -> None:
+    """Al completar una tarea con items_comision (una o mas categorias con su
+    cantidad, igual que en Comisiones), genera una comision por cada item --
+    una sola vez por tarea."""
+    row = (await db.execute(
+        text("SELECT rol FROM users WHERE id = :id AND tenant_id = :tid"),
+        {"id": task.asignado_a, "tid": tenant_id},
+    )).fetchone()
+    if not row:
+        return
+    rol = row.rol
+
+    categorias = {it["categoria"] for it in task.items_comision if it.get("categoria")}
+    reglas_result = await db.execute(
+        select(ReglaComision).where(
+            ReglaComision.tenant_id == tenant_id,
+            ReglaComision.rol == rol,
+            ReglaComision.categoria.in_(categorias),
+        )
+    )
+    reglas = {r.categoria: r for r in reglas_result.scalars().all()}
+
+    for it in task.items_comision:
+        categoria = it.get("categoria")
+        cantidad = it.get("cantidad") or 1
+        if not categoria:
+            continue
+        regla = reglas.get(categoria)
+        monto = regla.monto_por_unidad if regla else 0
+        es_meta = bool(regla and regla.meta_mensual is not None)
+        total = 0 if es_meta else cantidad * monto
+
+        db.add(Comision(
+            tenant_id=tenant_id,
+            user_id=task.asignado_a,
+            rol=rol,
+            categoria=categoria,
+            cantidad=cantidad,
+            monto_por_unidad=monto,
+            total=total,
+            estado="pendiente",
+            periodo=task.fecha_tarea.strftime("%Y-%m"),
+            fecha_trabajo=task.fecha_tarea,
+            tipo_registro="tarea",
+            notas=f"Generado automaticamente al completar la tarea: {task.titulo}",
+        ))
+    task.comision_generada = True
 
 
 @router.delete("/{task_id}", status_code=204)
@@ -192,6 +255,62 @@ async def _notify_wa(db: AsyncSession, t: DailyTask, tenant_id: str, background:
 
 # ─── helpers ──────────────────────────────────────────────────
 
+async def _find_or_create_cliente(
+    db: AsyncSession,
+    tenant_id: str,
+    nombre: str | None,
+    telefono: str | None,
+    email: str | None,
+    direccion: str | None,
+    empresa: str | None,
+) -> int | None:
+    """Busca en el CRM un cliente por telefono (o por nombre si no hay telefono)
+    y si no existe lo crea, para que toda tarea con datos de cliente quede
+    tambien registrada en Clientes. Nunca pisa datos ya cargados en el CRM,
+    solo completa los campos que estan vacios."""
+    if not nombre and not telefono:
+        return None
+
+    cliente = None
+    if telefono:
+        result = await db.execute(
+            select(Client).where(Client.tenant_id == tenant_id, Client.telefono == telefono)
+        )
+        cliente = result.scalar_one_or_none()
+    if not cliente and nombre:
+        result = await db.execute(
+            select(Client).where(
+                Client.tenant_id == tenant_id, func.lower(Client.nombre) == nombre.lower()
+            )
+        )
+        cliente = result.scalar_one_or_none()
+
+    if cliente:
+        if not cliente.telefono and telefono:
+            cliente.telefono = telefono
+        if not cliente.email and email:
+            cliente.email = email
+        if not cliente.direccion and direccion:
+            cliente.direccion = direccion
+        if not cliente.empresa and empresa:
+            cliente.empresa = empresa
+        return cliente.id
+
+    cliente = Client(
+        tenant_id=tenant_id,
+        nombre=nombre or "Cliente sin nombre",
+        telefono=telefono,
+        email=email,
+        direccion=direccion,
+        empresa=empresa,
+        tipo_cliente="empresa" if empresa else "persona",
+        origen="tarea",
+    )
+    db.add(cliente)
+    await db.flush()
+    return cliente.id
+
+
 async def _get_or_404(db: AsyncSession, tid: UUID, tenant_id: str) -> DailyTask:
     result = await db.execute(
         select(DailyTask).where(DailyTask.id == tid, DailyTask.tenant_id == tenant_id)
@@ -244,4 +363,7 @@ async def _enrich(db: AsyncSession, t: DailyTask, tenant_id: str) -> TaskRespons
         nota_especial=t.nota_especial,
         tracking_token=t.tracking_token if hasattr(t, 'tracking_token') else None,
         tracking_activo=t.tracking_activo if hasattr(t, 'tracking_activo') else False,
+        items_comision=t.items_comision,
+        comision_generada=t.comision_generada,
+        cliente_id=t.cliente_id if hasattr(t, 'cliente_id') else None,
     )

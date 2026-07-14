@@ -5,10 +5,6 @@ import { Plus, Trash2, Pencil, Check, X, DollarSign, Users, FileText, ChevronDow
 
 const fmt = (n: number) => '$' + (n || 0).toLocaleString('es-CL');
 
-const CATEGORIAS = [
-  'persiana_exterior', 'toldo', 'cortina_roller', 'cortina_blackout',
-  'cortina_panel', 'zebra', 'sheer', 'enrollable', 'general',
-];
 const ROLES = ['vendedor', 'fabricante', 'instalador'];
 
 const ESTADO_BADGE: Record<string, string> = {
@@ -43,13 +39,16 @@ function TabReglas() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editCategoria, setEditCategoria] = useState('');
   const [editMonto, setEditMonto] = useState('');
   const [editDesc, setEditDesc] = useState('');
+  const [editMeta, setEditMeta] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [newCategoria, setNewCategoria] = useState(CATEGORIAS[0]);
+  const [newCategoria, setNewCategoria] = useState('');
   const [newRol, setNewRol] = useState(ROLES[0]);
   const [newMonto, setNewMonto] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newMeta, setNewMeta] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -68,17 +67,22 @@ function TabReglas() {
 
   const startEdit = (r: any) => {
     setEditingId(r.id);
+    setEditCategoria(r.categoria);
     setEditMonto(String(r.monto_por_unidad));
     setEditDesc(r.descripcion || '');
+    setEditMeta(r.meta_mensual != null ? String(r.meta_mensual) : '');
   };
 
   const saveEdit = async (id: number) => {
     setSaving(true);
     try {
-      await api.updateReglaComision(id, {
+      const data: any = {
+        categoria: editCategoria.trim(),
         monto_por_unidad: parseInt(editMonto) || 0,
         descripcion: editDesc,
-      });
+      };
+      if (editMeta.trim() !== '') data.meta_mensual = parseInt(editMeta) || 0;
+      await api.updateReglaComision(id, data);
       setEditingId(null);
       await load();
     } catch (e: any) {
@@ -99,18 +103,20 @@ function TabReglas() {
   };
 
   const crearRegla = async () => {
-    if (!newMonto) return;
+    if (!newMonto || !newCategoria.trim()) return;
     setSaving(true);
     try {
       await api.createReglaComision({
-        categoria: newCategoria,
+        categoria: newCategoria.trim(),
         rol: newRol,
         monto_por_unidad: parseInt(newMonto) || 0,
         descripcion: newDesc,
+        ...(newMeta.trim() !== '' ? { meta_mensual: parseInt(newMeta) || 0 } : {}),
       });
       setShowForm(false);
       setNewMonto('');
       setNewDesc('');
+      setNewMeta('');
       await load();
     } catch (e: any) {
       alert(e.message);
@@ -141,14 +147,18 @@ function TabReglas() {
           <p className="text-sm font-semibold text-slate-200">Nueva regla de comision</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div>
-              <label className="text-xs text-slate-400">Categoria</label>
-              <select
+              <label className="text-xs text-slate-400">Categoria (nombre del servicio)</label>
+              <input
+                type="text"
+                list="categorias-existentes"
                 value={newCategoria}
                 onChange={e => setNewCategoria(e.target.value)}
+                placeholder="Ej: Cortina Blackout"
                 className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-700 px-2 py-1.5 text-sm text-slate-200"
-              >
-                {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              />
+              <datalist id="categorias-existentes">
+                {reglas.map(r => <option key={r.id} value={r.categoria} />)}
+              </datalist>
             </div>
             <div>
               <label className="text-xs text-slate-400">Rol</label>
@@ -181,6 +191,20 @@ function TabReglas() {
               />
             </div>
           </div>
+          <div>
+            <label className="text-xs text-slate-400">Meta mensual (opcional)</label>
+            <input
+              type="number"
+              value={newMeta}
+              onChange={e => setNewMeta(e.target.value)}
+              placeholder="Ej: 50 -- si se deja vacio, se paga por unidad hecha"
+              className="mt-1 w-full max-w-xs rounded-lg border border-slate-600 bg-slate-700 px-2 py-1.5 text-sm text-slate-200"
+            />
+            <p className="mt-1 text-[11px] text-slate-500">
+              Si se define, la categoria no se paga por unidad hecha sino una sola vez al generar la liquidacion:
+              (unidades del mes − meta) × monto por unidad. Ej: meta 50 y se hicieron 18 → descuento de (18−50)×monto.
+            </p>
+          </div>
           <div className="flex gap-2 justify-end">
             <button
               onClick={() => setShowForm(false)}
@@ -206,6 +230,7 @@ function TabReglas() {
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Categoria</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Rol</th>
               <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Monto / Unidad</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Meta mensual</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Descripcion</th>
               <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-400">Estado</th>
               <th className="px-4 py-3"></th>
@@ -214,14 +239,23 @@ function TabReglas() {
           <tbody className="divide-y divide-slate-700/50">
             {reglas.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-sm text-slate-500">
+                <td colSpan={7} className="py-8 text-center text-sm text-slate-500">
                   Sin reglas configuradas. Agrega la primera regla con el boton de arriba.
                 </td>
               </tr>
             )}
             {reglas.map(r => (
               <tr key={r.id} className="hover:bg-slate-800/50">
-                <td className="px-4 py-3 font-medium text-slate-200">{r.categoria}</td>
+                <td className="px-4 py-3 font-medium text-slate-200">
+                  {editingId === r.id ? (
+                    <input
+                      type="text"
+                      value={editCategoria}
+                      onChange={e => setEditCategoria(e.target.value)}
+                      className="w-full rounded border border-slate-500 bg-slate-700 px-2 py-1 text-sm text-slate-200"
+                    />
+                  ) : r.categoria}
+                </td>
                 <td className="px-4 py-3">
                   <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs font-medium text-slate-300">
                     {r.rol}
@@ -237,6 +271,23 @@ function TabReglas() {
                     />
                   ) : (
                     <span className="font-semibold text-emerald-400">{fmt(r.monto_por_unidad)}</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {editingId === r.id ? (
+                    <input
+                      type="number"
+                      value={editMeta}
+                      onChange={e => setEditMeta(e.target.value)}
+                      placeholder="sin meta"
+                      className="w-24 rounded border border-slate-500 bg-slate-700 px-2 py-1 text-right text-sm text-slate-200"
+                    />
+                  ) : r.meta_mensual != null ? (
+                    <span className="rounded-full bg-amber-900/50 px-2 py-0.5 text-xs font-semibold text-amber-300" title="Se paga/descuenta por desviacion de esta meta al generar la liquidacion, no por unidad">
+                      meta {r.meta_mensual}/mes
+                    </span>
+                  ) : (
+                    <span className="text-slate-600">—</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-slate-400">
@@ -314,6 +365,75 @@ function TabLiquidaciones() {
   const [ajusteNota, setAjusteNota] = useState('');
   const [ajusteSaving, setAjusteSaving] = useState(false);
 
+  // ── Ver / editar liquidacion ──
+  const [verLiqId, setVerLiqId] = useState<number | null>(null);
+  const [detalle, setDetalle] = useState<any>(null);
+  const [detalleLoading, setDetalleLoading] = useState(false);
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [editCategoria, setEditCategoria] = useState('');
+  const [editCantidad, setEditCantidad] = useState('');
+  const [filaSaving, setFilaSaving] = useState<number | null>(null);
+  const [reglasTodas, setReglasTodas] = useState<any[]>([]);
+  useEffect(() => { api.getReglasComision().then(setReglasTodas).catch(() => {}); }, []);
+
+  const cargarDetalle = async (liqId: number) => {
+    setVerLiqId(liqId);
+    setDetalleLoading(true);
+    try {
+      const d = await api.getLiquidacionDetalle(liqId);
+      setDetalle(d);
+    } catch (e: any) {
+      alert(e.message);
+      setVerLiqId(null);
+    } finally {
+      setDetalleLoading(false);
+    }
+  };
+
+  const startEditFila = (c: any) => {
+    setEditandoId(c.id);
+    setEditCategoria(c.categoria);
+    setEditCantidad(String(c.cantidad));
+  };
+
+  const guardarFila = async (comisionId: number) => {
+    setFilaSaving(comisionId);
+    try {
+      await api.editarComision(comisionId, {
+        categoria: editCategoria,
+        cantidad: parseInt(editCantidad) || 1,
+      });
+      setEditandoId(null);
+      // Recalcular la liquidacion con los nuevos totales
+      if (detalle) {
+        await api.generarLiquidacion({ user_id: detalle.user_id, periodo: detalle.periodo, sueldo_base: detalle.sueldo_base });
+        await cargarDetalle(detalle.id);
+      }
+      await load();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setFilaSaving(null);
+    }
+  };
+
+  const borrarFila = async (comisionId: number) => {
+    if (!confirm('Eliminar este registro de trabajo?')) return;
+    setFilaSaving(comisionId);
+    try {
+      await api.eliminarComision(comisionId);
+      if (detalle) {
+        await api.generarLiquidacion({ user_id: detalle.user_id, periodo: detalle.periodo, sueldo_base: detalle.sueldo_base });
+        await cargarDetalle(detalle.id);
+      }
+      await load();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setFilaSaving(null);
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     try {
@@ -366,6 +486,18 @@ function TabLiquidaciones() {
       await load();
     } catch (e: any) {
       alert(e.message);
+    }
+  };
+
+  const [descargando, setDescargando] = useState<string | null>(null);
+  const descargar = async (liqId: number, formato: 'pdf' | 'xlsx') => {
+    setDescargando(`${liqId}-${formato}`);
+    try {
+      await api.descargarLiquidacion(liqId, formato);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setDescargando(null);
     }
   };
 
@@ -486,9 +618,10 @@ function TabLiquidaciones() {
                             </button>
                             <button
                               onClick={() => openAjuste(liq)}
+                              title="Agregar adelanto, bono o descuento"
                               className="rounded-lg bg-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-600"
                             >
-                              Ajuste
+                              Ajuste / Adelanto
                             </button>
                             <button
                               onClick={() => aprobar(liq.id)}
@@ -509,6 +642,32 @@ function TabLiquidaciones() {
                         {liq?.estado === 'pagada' && (
                           <span className="text-xs text-emerald-400 font-semibold">Pagada</span>
                         )}
+                        {liq && (
+                          <>
+                            <button
+                              onClick={() => cargarDetalle(liq.id)}
+                              className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-500"
+                            >
+                              Ver / Editar
+                            </button>
+                            <button
+                              onClick={() => descargar(liq.id, 'pdf')}
+                              disabled={descargando === `${liq.id}-pdf`}
+                              title="Descargar PDF"
+                              className="rounded-lg border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700 disabled:opacity-50"
+                            >
+                              {descargando === `${liq.id}-pdf` ? '...' : 'PDF'}
+                            </button>
+                            <button
+                              onClick={() => descargar(liq.id, 'xlsx')}
+                              disabled={descargando === `${liq.id}-xlsx`}
+                              title="Descargar Excel"
+                              className="rounded-lg border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700 disabled:opacity-50"
+                            >
+                              {descargando === `${liq.id}-xlsx` ? '...' : 'Excel'}
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -521,19 +680,24 @@ function TabLiquidaciones() {
 
       {/* Modal ajuste */}
       {selectedLiq && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-4">Ajuste para {selectedLiq.nombre}</h3>
+            <h3 className="text-lg font-bold text-white mb-4">Ajuste / Adelanto para {selectedLiq.nombre}</h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400">Monto ajuste (puede ser negativo para descuentos)</label>
+                <label className="text-xs text-slate-400">Monto total del ajuste (adelantos/descuentos van en negativo, bonos en positivo)</label>
                 <input
                   type="number"
                   value={ajusteVal}
                   onChange={e => setAjusteVal(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200"
-                  placeholder="ej: -10000 o 25000"
+                  placeholder="ej: adelanto de 10.000 -> -10000"
                 />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Este valor reemplaza el total de ajustes de la liquidacion (ya viene con lo que se
+                  precargo automatico, ej. descuento de meta Roller). Si vas a restar un adelanto,
+                  parte del valor actual ({fmt(selectedLiq.ajustes || 0)}) y restale el monto del adelanto.
+                </p>
               </div>
               <div>
                 <label className="text-xs text-slate-400">Nota del ajuste</label>
@@ -561,6 +725,136 @@ function TabLiquidaciones() {
                 {ajusteSaving ? 'Guardando...' : 'Guardar Ajuste'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ver / Editar liquidacion */}
+      {verLiqId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+            {detalleLoading || !detalle ? (
+              <div className="flex justify-center py-12"><Spinner /></div>
+            ) : (
+              <>
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-white">{detalle.nombre}</h3>
+                    <p className="text-sm text-slate-400">Periodo {detalle.periodo} · <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_BADGE[detalle.estado] || ''}`}>{detalle.estado}</span></p>
+                  </div>
+                  <button onClick={() => { setVerLiqId(null); setDetalle(null); setEditandoId(null); }} className="text-slate-400 hover:text-slate-200">
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => descargar(detalle.id, 'pdf')}
+                    disabled={descargando === `${detalle.id}-pdf`}
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50"
+                  >
+                    <FileText size={14} /> {descargando === `${detalle.id}-pdf` ? 'Descargando...' : 'Descargar PDF'}
+                  </button>
+                  <button
+                    onClick={() => descargar(detalle.id, 'xlsx')}
+                    disabled={descargando === `${detalle.id}-xlsx`}
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    <FileText size={14} /> {descargando === `${detalle.id}-xlsx` ? 'Descargando...' : 'Descargar Excel'}
+                  </button>
+                </div>
+
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                  Trabajo registrado {detalle.estado !== 'borrador' && <span className="text-amber-400">(solo lectura — la liquidacion ya no esta en borrador)</span>}
+                </p>
+                <div className="rounded-xl border border-slate-700 overflow-hidden mb-4">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-700 bg-slate-800">
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-slate-400">Categoria</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold text-slate-400">Cant.</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold text-slate-400">Total</th>
+                        <th className="px-3 py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/50">
+                      {(detalle.comisiones || []).length === 0 && (
+                        <tr><td colSpan={4} className="py-6 text-center text-xs text-slate-500">Sin trabajo registrado este mes</td></tr>
+                      )}
+                      {(detalle.comisiones || []).map((c: any) => (
+                        <tr key={c.id}>
+                          <td className="px-3 py-2 text-slate-200">
+                            {editandoId === c.id ? (
+                              <select value={editCategoria} onChange={e => setEditCategoria(e.target.value)}
+                                className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-200">
+                                {reglasTodas.filter(r => r.rol === c.rol).map(r => (
+                                  <option key={r.id} value={r.categoria}>{r.categoria}</option>
+                                ))}
+                              </select>
+                            ) : c.categoria}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {editandoId === c.id ? (
+                              <input type="number" min="1" value={editCantidad} onChange={e => setEditCantidad(e.target.value)}
+                                className="w-16 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-right text-sm text-slate-200" />
+                            ) : c.cantidad}
+                          </td>
+                          <td className="px-3 py-2 text-right text-slate-300">{fmt(c.total)}</td>
+                          <td className="px-3 py-2">
+                            {detalle.estado === 'borrador' && (
+                              <div className="flex items-center justify-end gap-1">
+                                {editandoId === c.id ? (
+                                  <>
+                                    <button onClick={() => guardarFila(c.id)} disabled={filaSaving === c.id}
+                                      className="rounded p-1 text-emerald-400 hover:bg-emerald-900/30"><Check size={13} /></button>
+                                    <button onClick={() => setEditandoId(null)}
+                                      className="rounded p-1 text-slate-400 hover:bg-slate-700"><X size={13} /></button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button onClick={() => startEditFila(c)}
+                                      className="rounded p-1 text-slate-400 hover:bg-slate-700 hover:text-slate-200"><Pencil size={13} /></button>
+                                    <button onClick={() => borrarFila(c.id)} disabled={filaSaving === c.id}
+                                      className="rounded p-1 text-slate-400 hover:bg-red-900/30 hover:text-red-400"><Trash2 size={13} /></button>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="space-y-1.5 text-sm border-t border-slate-700 pt-3">
+                  <div className="flex justify-between text-slate-300"><span>Sueldo base</span><span>{fmt(detalle.sueldo_base)}</span></div>
+                  <div className="flex justify-between text-slate-300"><span>Total comisiones</span><span>{fmt(detalle.total_comisiones)}</span></div>
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span>Ajustes (bonos, adelantos, descuentos)</span>
+                    <span className="flex items-center gap-2">
+                      {fmt(detalle.ajustes)}
+                      {detalle.estado === 'borrador' && (
+                        <button
+                          onClick={() => {
+                            openAjuste(detalle);
+                            setVerLiqId(null);
+                            setDetalle(null);
+                            setEditandoId(null);
+                          }}
+                          title="Agregar adelanto, bono o descuento"
+                          className="rounded p-1 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                  {detalle.notas_ajustes && <p className="text-xs text-slate-500">{detalle.notas_ajustes}</p>}
+                  <div className="flex justify-between text-base font-bold text-white pt-1 border-t border-slate-700"><span>Total a pagar</span><span>{fmt(detalle.total)}</span></div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

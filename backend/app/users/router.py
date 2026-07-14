@@ -76,6 +76,7 @@ async def list_users(
             tenant_id=u.tenant_id or "",
             activo=u.activo,
             telefono=u.telefono,
+        puede_ver_comisiones=u.puede_ver_comisiones,
         )
         for u in users
     ]
@@ -121,6 +122,7 @@ async def create_user(
         tenant_id=user.tenant_id or "",
         activo=user.activo,
         telefono=user.telefono,
+    puede_ver_comisiones=user.puede_ver_comisiones,
     )
 
 
@@ -144,6 +146,7 @@ async def toggle_user(
         tenant_id=user.tenant_id or "",
         activo=user.activo,
         telefono=user.telefono,
+    puede_ver_comisiones=user.puede_ver_comisiones,
     )
 
 
@@ -230,6 +233,7 @@ async def update_user(
         tenant_id=user.tenant_id or "",
         activo=user.activo,
         telefono=user.telefono,
+    puede_ver_comisiones=user.puede_ver_comisiones,
     )
 
 @router.get("/by-role/{role}", response_model=list[UserResponse])
@@ -249,6 +253,7 @@ async def users_by_role(
             tenant_id=u.tenant_id or "",
             activo=u.activo,
             telefono=u.telefono,
+        puede_ver_comisiones=u.puede_ver_comisiones,
         )
         for u in users
     ]

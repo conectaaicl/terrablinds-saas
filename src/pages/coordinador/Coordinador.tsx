@@ -21,7 +21,7 @@ import {
   AlertTriangle, ChevronRight, Plus, X, Clock,
   ListTodo, ArrowRight, ExternalLink, Radio,
   RefreshCw, Target, MessageCircle, Copy, Check,
-  Phone, Trash2, Wrench,
+  Phone, Trash2, Wrench, Archive, ChevronDown,
 } from 'lucide-react';
 
 const fmtDate = (s: string) => s ? new Date(s).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' }) : '—';
@@ -65,7 +65,7 @@ export function CoordinadorDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Centro de Coordinación</h1>
           <p className="text-sm text-slate-500">{new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
@@ -259,7 +259,7 @@ export function AgendaSemanal() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Agenda Semanal</h1>
           <p className="text-sm text-slate-500">Próximos 7 días de instalaciones</p>
@@ -368,6 +368,39 @@ export function AgendaSemanal() {
                   })}
                 </div>
               )}
+
+              {dia.tareas?.length > 0 && (
+                <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                  <p className="text-[10px] font-semibold uppercase text-amber-600">
+                    {dia.tareas.length} tarea{dia.tareas.length !== 1 ? 's' : ''} de agenda
+                  </p>
+                  {dia.tareas.map((t: any) => (
+                    <div key={t.id} className="flex gap-3 rounded-lg border border-amber-100 bg-amber-50/40 p-3">
+                      <div className="mt-0.5 w-14 flex-shrink-0 text-center">
+                        <p className="text-xs font-bold text-slate-800">{t.hora || '—'}</p>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold text-slate-800 truncate">{t.titulo}</p>
+                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                            t.estado === 'completada' ? 'bg-emerald-100 text-emerald-700' :
+                            t.estado === 'en_progreso' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                          }`}>{t.estado}</span>
+                        </div>
+                        {t.cliente_nombre && <p className="text-xs text-slate-600">{t.cliente_nombre}</p>}
+                        {t.direccion && (
+                          <a href={`https://maps.google.com/?q=${encodeURIComponent(t.direccion)}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-[11px] text-blue-600 hover:underline">
+                            <MapPin size={10} /> {t.direccion}
+                          </a>
+                        )}
+                        <p className="text-[11px] text-slate-400">👷 {t.asignado_a_nombre || `Usuario ${t.asignado_a}`}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -383,68 +416,205 @@ export function AgendaSemanal() {
 
 const TIPO_TAREA_CONFIG: Record<string, { label: string; emoji: string; color: string }> = {
   instalacion:      { label: 'Instalación',      emoji: '🟢', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
-  servicio_tecnico: { label: 'Servicio Técnico', emoji: '🔧', color: 'text-blue-700 bg-blue-50 border-blue-200' },
-  reunion:          { label: 'Reunión / Terreno', emoji: '🟡', color: 'text-amber-700 bg-amber-50 border-amber-200' },
+  mantencion:       { label: 'Mantención',       emoji: '🟢', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+  servicio_tecnico: { label: 'Servicio Técnico', emoji: '🟢', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+  retiro:           { label: 'Retiro',           emoji: '🔴', color: 'text-red-700 bg-red-50 border-red-200' },
   medicion:         { label: 'Medición',         emoji: '📐', color: 'text-purple-700 bg-purple-50 border-purple-200' },
+  reunion:          { label: 'Reunión / Terreno', emoji: '🟡', color: 'text-amber-700 bg-amber-50 border-amber-200' },
   otro:             { label: 'Otro',             emoji: '⚪', color: 'text-slate-700 bg-slate-50 border-slate-200' },
 };
 
 function generarWhatsApp(fecha: string, tareas: DailyTask[]): string {
-  const fechaStr = new Date(fecha + 'T12:00:00').toLocaleDateString('es-CL', {
-    weekday: 'long', day: 'numeric', month: 'long'
-  });
+  const d = new Date(fecha + 'T12:00:00');
+  const dia = String(d.getDate()).padStart(2, '0');
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const anio = d.getFullYear();
+  const fechaStr = dia + '-' + mes + '-' + anio;
 
-  // Agrupar por técnico
   const porTecnico: Record<string, DailyTask[]> = {};
   for (const t of tareas) {
     if (t.estado === 'cancelada') continue;
-    const nombre = (t.asignado_a_nombre || `ID ${t.asignado_a}`).toUpperCase();
+    const nombre = (t.asignado_a_nombre || 'ID ' + t.asignado_a).toUpperCase();
     if (!porTecnico[nombre]) porTecnico[nombre] = [];
     porTecnico[nombre].push(t);
   }
 
-  const lines: string[] = [`📅 *AGENDA ${fechaStr.toUpperCase()}*\n`];
+  const bloques: string[] = [];
 
-  for (const [nombre, tasks] of Object.entries(porTecnico)) {
-    lines.push(`*${nombre}*\n`);
+  for (const [tecnico, tasks] of Object.entries(porTecnico)) {
+    const lines: string[] = [];
+    lines.push('👷‍♂️ ' + tecnico);
+    lines.push('📅 ' + fechaStr);
+
     for (const t of tasks) {
-      const cfg = TIPO_TAREA_CONFIG[t.tipo_tarea || 'otro'];
-      if (t.hora) lines.push(`🕐 ${t.hora}`);
-      const tipoLabel = cfg?.label || t.tipo_tarea || 'Tarea';
-      const clienteStr = t.cliente_nombre ? ` – ${t.cliente_nombre}` : '';
-      lines.push(`${cfg?.emoji || '🟢'} ${tipoLabel}${clienteStr}`);
-      if (t.direccion) lines.push(`📍 ${t.direccion}`);
+      const cfg = TIPO_TAREA_CONFIG[t.tipo_tarea || 'otro'] || TIPO_TAREA_CONFIG.otro;
+      const empresa = t.empresa_cliente ? ' (' + t.empresa_cliente + ')' : '';
+      const clienteStr = t.cliente_nombre ? ' – ' + t.cliente_nombre + empresa : '';
+      const restriccion = t.restriccion_horaria ? t.restriccion_horaria + ' – ' : '';
+      const horaStr = t.hora ? t.hora + ' ' : '';
+      lines.push(cfg.emoji + ' ' + horaStr + restriccion + cfg.label + clienteStr);
       if (t.direccion) {
-        const wazeUrl = `https://waze.com/ul?q=${encodeURIComponent(t.direccion)}`;
-        lines.push(`🧭 ${wazeUrl}`);
+        lines.push('📍 ' + t.direccion);
+        lines.push('🧭 https://waze.com/ul?q=' + encodeURIComponent(t.direccion));
       }
-      if (t.cliente_telefono) lines.push(`📞 ${t.cliente_telefono}`);
-      if (t.ot_numero) lines.push(`📝 OT ${t.ot_numero}`);
-      if (t.vendedor_nombre) lines.push(`👨‍💼 Vendedor: ${t.vendedor_nombre}`);
-      if (t.descripcion) lines.push(`\n🔧 ${t.descripcion}`);
+      if (t.cliente_email) lines.push('📧 ' + t.cliente_email);
+      if (t.cliente_telefono) lines.push('📞 ' + t.cliente_telefono);
+      if (t.ot_numero) lines.push('📝 OT ' + t.ot_numero);
+      if (t.vendedor_nombre) lines.push('👨‍💼 ' + t.vendedor_nombre);
+      if (t.descripcion) lines.push('🔧 ' + t.descripcion);
       if (t.items && t.items.length > 0) {
         if (!t.descripcion) lines.push('🔧');
         for (const item of t.items) {
-          lines.push(`* ${item.descripcion}${item.ubicacion ? ` (${item.ubicacion})` : ''}`);
+          lines.push('  ' + item.descripcion + (item.ubicacion ? ' (' + item.ubicacion + ')' : ''));
         }
       }
       if (t.observaciones && t.observaciones.length > 0) {
-        lines.push('');
         for (const obs of t.observaciones) {
-          lines.push(`⚠️ ${obs}`);
+          if (obs.trim()) lines.push('⚠️ ' + obs);
         }
       }
-      lines.push('\n⸻\n');
+      if (t.nota_especial && t.nota_especial.trim()) {
+        lines.push(t.nota_especial.trim());
+      }
+      lines.push('━━━━━━━━━━━━━━━━━━━━━');
     }
+
+    bloques.push(lines.join('\n'));
   }
 
-  return lines.join('\n');
+  return bloques.join('\n\n');
+}
+
+
+// ─── Archivo de Tareas Completadas ───────────────────────────
+function TareasArchivo() {
+  const [open, setOpen] = useState(false);
+  const [openDates, setOpenDates] = useState<Set<string>>(new Set());
+  const { data: tareas, loading } = useApi(
+    () => open ? api.getTasks({ estado: 'completada' }) : Promise.resolve(null),
+    [open]
+  );
+
+  const taskList: any[] = tareas || [];
+
+  // Group by fecha_tarea desc
+  const byFecha: Record<string, any[]> = {};
+  for (const t of taskList) {
+    const f = t.fecha_tarea || 'Sin fecha';
+    if (!byFecha[f]) byFecha[f] = [];
+    byFecha[f].push(t);
+  }
+  const fechas = Object.keys(byFecha).sort((a, b) => b.localeCompare(a));
+
+  const toggleDate = (f: string) => {
+    setOpenDates(prev => {
+      const next = new Set(prev);
+      next.has(f) ? next.delete(f) : next.add(f);
+      return next;
+    });
+  };
+
+  const fmtFecha = (s: string) => {
+    if (!s || s === 'Sin fecha') return 'Sin fecha';
+    const d = new Date(s + 'T12:00:00');
+    return d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex w-full items-center justify-between px-5 py-4 hover:bg-slate-50 transition"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100">
+            <Archive size={18} className="text-emerald-600" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-bold text-slate-900">Archivo de tareas completadas</p>
+            <p className="text-xs text-slate-400">Historial de todas las tareas finalizadas</p>
+          </div>
+        </div>
+        <ChevronDown size={18} className={`text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-100">
+          {loading && (
+            <div className="py-8 text-center text-sm text-slate-400">Cargando historial...</div>
+          )}
+
+          {!loading && taskList.length === 0 && (
+            <div className="py-10 text-center">
+              <Archive size={32} className="mx-auto text-slate-200 mb-2" />
+              <p className="text-sm text-slate-400">No hay tareas completadas aún</p>
+            </div>
+          )}
+
+          {!loading && fechas.map(fecha => {
+            const tasks = byFecha[fecha];
+            const isOpen = openDates.has(fecha);
+            return (
+              <div key={fecha} className="border-b border-slate-50 last:border-b-0">
+                <button
+                  onClick={() => toggleDate(fecha)}
+                  className="flex w-full items-center justify-between bg-slate-50 px-5 py-3 hover:bg-slate-100 transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700">
+                      {tasks.length}
+                    </div>
+                    <span className="text-sm font-semibold text-slate-700 capitalize">{fmtFecha(fecha)}</span>
+                  </div>
+                  <ChevronRight size={15} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                </button>
+
+                {isOpen && (
+                  <div className="divide-y divide-slate-50">
+                    {tasks.map((t: any) => {
+                      const cfg = TIPO_TAREA_CONFIG[t.tipo_tarea || 'otro'] || TIPO_TAREA_CONFIG.otro;
+                      return (
+                        <div key={t.id} className="flex items-start gap-3 px-5 py-4 bg-white">
+                          <div className="flex-shrink-0 text-center min-w-[40px]">
+                            {t.hora && <p className="text-xs font-bold text-slate-500">{t.hora}</p>}
+                            <span className="text-lg">{cfg.emoji}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-800">
+                              {t.cliente_nombre || t.titulo}
+                            </p>
+                            <p className="text-xs text-slate-500">{t.asignado_a_nombre}</p>
+                            {t.direccion && <p className="mt-0.5 text-xs text-slate-400">{t.direccion}</p>}
+                            {t.notas_cierre && (
+                              <p className="mt-1.5 rounded bg-emerald-50 px-2 py-1 text-xs text-emerald-700 italic">
+                                ✓ "{t.notas_cierre}"
+                              </p>
+                            )}
+                          </div>
+                          <span className="flex-shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                            ✓ Completada
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function GestionTareas() {
   const [showForm, setShowForm] = useState(false);
   const [fechaFiltro, setFechaFiltro] = useState(new Date().toISOString().split('T')[0]);
   const [copied, setCopied] = useState(false);
+  const [showWaMenu, setShowWaMenu] = useState(false);
+  const [trackingModal, setTrackingModal] = useState<{task: DailyTask; url: string} | null>(null);
+  const [trackingBusy, setTrackingBusy] = useState<string | null>(null);
 
   const { data: tareas, loading, error, refetch } = useApi(
     () => api.getTasks({ fecha: fechaFiltro }),
@@ -478,6 +648,18 @@ export function GestionTareas() {
     });
   };
 
+  const generarLinkTracking = async (task: DailyTask) => {
+    setTrackingBusy(task.id as unknown as string);
+    try {
+      const res = await (api as any).activateTaskTracking(task.id.toString());
+      setTrackingModal({ task, url: res.tracking_url });
+    } catch {
+      alert('Error al generar link de tracking');
+    } finally {
+      setTrackingBusy(null);
+    }
+  };
+
   // Agrupar por técnico para mostrar
   const porTecnico: Record<string, DailyTask[]> = {};
   for (const t of taskList) {
@@ -502,7 +684,7 @@ export function GestionTareas() {
             {activas} activas · {completadas} completadas · {Object.keys(porTecnico).length} técnicos
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
             type="date"
             value={fechaFiltro}
@@ -522,6 +704,58 @@ export function GestionTareas() {
               {copied ? 'Copiado' : 'Copiar WhatsApp'}
             </button>
           )}
+          {taskList.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowWaMenu(v => !v)}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+              >
+                <MessageCircle size={15} />
+                Por técnico
+              </button>
+              {showWaMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowWaMenu(false)} />
+                  <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                    {Object.entries(porTecnico).map(([nombre, tasks]) => {
+                      const userId = (tasks[0] as any)?.asignado_a;
+                      const usr = allUsers.find((u: any) => u.id === userId);
+                      const phone = usr?.telefono;
+                      const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
+                      const waText = generarWhatsApp(fechaFiltro, tasks as DailyTask[]);
+                      const waUrl = cleanPhone
+                        ? 'https://wa.me/' + cleanPhone + '?text=' + encodeURIComponent(waText)
+                        : null;
+                      return (
+                        <div key={nombre} className="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-slate-50">
+                          <span className="mr-2 truncate text-sm font-medium text-slate-700">
+                            👷 {nombre}
+                          </span>
+                          {waUrl ? (
+                            <a
+                              href={waUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 rounded-md bg-emerald-500 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-600"
+                            >
+                              Enviar
+                            </a>
+                          ) : (
+                            <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-400">
+                              Sin número
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <p className="mt-1.5 border-t border-slate-100 pt-1.5 text-center text-[10px] text-slate-400">
+                      Abre WhatsApp directo al técnico
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <button
             onClick={() => setShowForm(true)}
             className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-600"
@@ -534,11 +768,50 @@ export function GestionTareas() {
       {/* Formulario */}
       {showForm && (
         <NuevaTareaForm
-          users={allUsers}
+          users={[...(instUsers || []), ...(coordUsers || [])]}
+          vendedores={vendUsers || []}
           fecha={fechaFiltro}
           onCreated={() => { setShowForm(false); refetch(); }}
           onCancel={() => setShowForm(false)}
         />
+      )}
+
+      {/* Tracking modal */}
+      {trackingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="mb-1 text-lg font-bold text-slate-900">Link GPS para cliente</h3>
+            <p className="mb-4 text-sm text-slate-500">
+              {trackingModal.task.cliente_nombre || trackingModal.task.titulo}
+              {trackingModal.task.direccion && <span className="block text-xs text-slate-400">{trackingModal.task.direccion}</span>}
+            </p>
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 mb-4">
+              <p className="flex-1 truncate text-xs font-mono text-slate-700">{trackingModal.url}</p>
+              <button
+                onClick={() => navigator.clipboard.writeText(trackingModal.url)}
+                className="shrink-0 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">
+                Copiar
+              </button>
+            </div>
+            {trackingModal.task.cliente_telefono && (
+              <a
+                href={'https://wa.me/' + trackingModal.task.cliente_telefono.replace(/[^0-9]/g, '') + '?text=' + encodeURIComponent(
+                  'Hola ' + (trackingModal.task.cliente_nombre || '') + ', su técnico está en camino a su domicilio. Puede ver su ubicación en tiempo real aquí: ' + trackingModal.url
+                )}
+                target="_blank" rel="noopener noreferrer"
+                className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-white hover:bg-emerald-600 transition">
+                <MessageCircle size={15} /> Enviar al cliente por WhatsApp
+              </a>
+            )}
+            <p className="mb-4 text-[11px] text-slate-400">
+              El técnico debe activar el GPS desde su panel (GPS / Tracking) para que el cliente vea su posición.
+            </p>
+            <button onClick={() => setTrackingModal(null)}
+              className="w-full rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
+              Cerrar
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Tareas vacías */}
@@ -665,6 +938,15 @@ export function GestionTareas() {
                         {/* Acciones */}
                         {t.estado !== 'completada' && t.estado !== 'cancelada' && (
                           <div className="flex gap-1 flex-shrink-0">
+                            {t.direccion && (
+                              <button
+                                onClick={() => generarLinkTracking(t)}
+                                disabled={trackingBusy === (t.id as unknown as string)}
+                                title="Generar link GPS para cliente"
+                                className="rounded-lg bg-blue-50 p-1.5 text-blue-600 hover:bg-blue-100 transition disabled:opacity-50">
+                                <MapPin size={15} />
+                              </button>
+                            )}
                             <button onClick={() => completar(t)}
                               title="Marcar completada"
                               className="rounded-lg bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition">
@@ -686,6 +968,9 @@ export function GestionTareas() {
           ))}
         </div>
       )}
+
+      {/* Archivo de tareas completadas */}
+      <TareasArchivo />
     </div>
   );
 }
@@ -809,17 +1094,24 @@ function AgendarModal({ orden, onCreated, onCancel }: {
 interface TaskDraft {
   _id: number;
   expanded: boolean;
-  asignadoA: string;
+  asignadoA: string[];
   hora: string;
   tipoTarea: string;
   clienteNombre: string;
+  empresaCliente: string;
+  clienteEmail: string;
   clienteTelefono: string;
   direccion: string;
   otNumero: string;
   vendedorNombre: string;
   descripcion: string;
+  restriccionHoraria: string;
   items: { descripcion: string; ubicacion: string }[];
   observaciones: string[];
+  notaEspecial: string;
+  // Trabajo realizado por categoria de comision -- categoria -> cantidad (string de input).
+  // Reemplaza a la descripcion libre: lo que se pone aca es lo mismo que se suma en Comisiones.
+  cantidadesComision: Record<string, string>;
 }
 
 let _draftCounter = 0;
@@ -827,17 +1119,21 @@ function newDraft(expanded = true): TaskDraft {
   return {
     _id: ++_draftCounter,
     expanded,
-    asignadoA: '', hora: '', tipoTarea: 'instalacion',
-    clienteNombre: '', clienteTelefono: '', direccion: '',
+    asignadoA: [], hora: '', tipoTarea: 'instalacion',
+    clienteNombre: '', empresaCliente: '', clienteEmail: '',
+    clienteTelefono: '', direccion: '',
     otNumero: '', vendedorNombre: '', descripcion: '',
+    restriccionHoraria: '',
     items: [{ descripcion: '', ubicacion: '' }],
     observaciones: [''],
+    notaEspecial: '',
+    cantidadesComision: {},
   };
 }
 
 // ─── Formulario multi-tarea (hasta 10) ───────────────────────
-function NuevaTareaForm({ users, fecha, onCreated, onCancel }: {
-  users: any[]; fecha: string;
+function NuevaTareaForm({ users, vendedores, fecha, onCreated, onCancel }: {
+  users: any[]; vendedores: any[]; fecha: string;
   onCreated: () => void; onCancel: () => void;
 }) {
   const [fechaTarea, setFechaTarea] = useState(fecha);
@@ -845,6 +1141,8 @@ function NuevaTareaForm({ users, fecha, onCreated, onCancel }: {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const { data: reglasComision } = useApi(() => api.getReglasComision());
+  const reglasList: any[] = reglasComision || [];
 
   // ── helpers de draft ──
   const setDraft = (idx: number, patch: Partial<TaskDraft>) =>
@@ -883,8 +1181,8 @@ function NuevaTareaForm({ users, fecha, onCreated, onCancel }: {
   const submitAll = async () => {
     for (let i = 0; i < drafts.length; i++) {
       const d = drafts[i];
-      if (!d.asignadoA) {
-        setError(`Tarea ${i + 1}: debes seleccionar un técnico`);
+      if (!d.asignadoA.length) {
+        setError(`Tarea ${i + 1}: debes seleccionar al menos un técnico`);
         setDraft(i, { expanded: true });
         return;
       }
@@ -902,23 +1200,36 @@ function NuevaTareaForm({ users, fecha, onCreated, onCancel }: {
           : tipoLabel;
         const itemsFiltrados = d.items.filter(it => it.descripcion.trim());
         const obsFiltradas = d.observaciones.filter(o => o.trim());
+        const itemsComision = Object.entries(d.cantidadesComision)
+          .map(([categoria, v]) => ({ categoria, cantidad: parseInt(v) || 0 }))
+          .filter(it => it.cantidad > 0);
+        // La descripcion general del trabajo se arma sola desde lo que se marco
+        // en "Trabajo realizado" -- lo mismo que se va a sumar en Comisiones.
+        const descripcionAuto = itemsComision.map(it => `${it.cantidad} ${it.categoria}`).join(', ');
 
-        await api.createTask({
-          titulo,
-          descripcion: d.descripcion.trim() || undefined,
-          asignado_a: Number(d.asignadoA),
-          fecha_tarea: fechaTarea,
-          prioridad: 'normal',
-          hora: d.hora || undefined,
-          tipo_tarea: d.tipoTarea,
-          cliente_nombre: d.clienteNombre.trim() || undefined,
-          cliente_telefono: d.clienteTelefono.trim() || undefined,
-          direccion: d.direccion.trim() || undefined,
-          ot_numero: d.otNumero.trim() || undefined,
-          vendedor_nombre: d.vendedorNombre.trim() || undefined,
-          items: itemsFiltrados.length > 0 ? itemsFiltrados : undefined,
-          observaciones: obsFiltradas.length > 0 ? obsFiltradas : undefined,
-        });
+        for (const uid of d.asignadoA) {
+          await api.createTask({
+            titulo,
+            descripcion: descripcionAuto || d.descripcion.trim() || undefined,
+            asignado_a: Number(uid),
+            fecha_tarea: fechaTarea,
+            prioridad: 'normal',
+            hora: d.hora || undefined,
+            tipo_tarea: d.tipoTarea,
+            cliente_nombre: d.clienteNombre.trim() || undefined,
+            empresa_cliente: d.empresaCliente.trim() || undefined,
+            cliente_email: d.clienteEmail.trim() || undefined,
+            cliente_telefono: d.clienteTelefono.trim() || undefined,
+            direccion: d.direccion.trim() || undefined,
+            ot_numero: d.otNumero.trim() || undefined,
+            vendedor_nombre: d.vendedorNombre.trim() || undefined,
+            restriccion_horaria: d.restriccionHoraria.trim() || undefined,
+            items: itemsFiltrados.length > 0 ? itemsFiltrados : undefined,
+            observaciones: obsFiltradas.length > 0 ? obsFiltradas : undefined,
+            nota_especial: d.notaEspecial.trim() || undefined,
+            items_comision: itemsComision.length > 0 ? itemsComision : undefined,
+          });
+        }
         setProgress(i + 1);
       }
       onCreated();
@@ -930,7 +1241,7 @@ function NuevaTareaForm({ users, fecha, onCreated, onCancel }: {
   };
 
   const inp = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200';
-  const validCount = drafts.filter(d => d.asignadoA).length;
+  const validCount = drafts.filter(d => d.asignadoA.length > 0).length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
@@ -955,7 +1266,7 @@ function NuevaTareaForm({ users, fecha, onCreated, onCancel }: {
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {drafts.map((d, idx) => {
             const cfg = TIPO_TAREA_CONFIG[d.tipoTarea] || TIPO_TAREA_CONFIG.otro;
-            const tecnicoNombre = users.find(u => String(u.id) === d.asignadoA)?.nombre || '';
+            const tecnicoNombre = d.asignadoA.map(uid => users.find(u => String(u.id) === uid)?.nombre || uid).join(', ');
             return (
               <div key={d._id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
                 {/* Cabecera de la tarea (siempre visible) */}
@@ -1005,18 +1316,54 @@ function NuevaTareaForm({ users, fecha, onCreated, onCancel }: {
                         </select>
                       </div>
                       <div>
-                        <label className="mb-1 block text-[10px] font-semibold text-slate-500 uppercase">Técnico *</label>
-                        <select value={d.asignadoA} onChange={e => setDraft(idx, { asignadoA: e.target.value })} className={inp}>
-                          <option value="">— Seleccionar —</option>
-                          {users.map(u => (
-                            <option key={u.id} value={u.id}>{u.nombre}</option>
-                          ))}
-                        </select>
+                        <label className="mb-1 block text-[10px] font-semibold text-slate-500 uppercase">
+                          Técnico(s) * <span className="text-slate-400 font-normal normal-case">(máx 3)</span>
+                        </label>
+                        <div className="rounded-lg border border-slate-200 bg-white p-1.5 space-y-0.5 max-h-28 overflow-y-auto">
+                          {users.map(u => {
+                            const checked = d.asignadoA.includes(String(u.id));
+                            const maxReached = d.asignadoA.length >= 3 && !checked;
+                            return (
+                              <label key={u.id} className={"flex items-center gap-2 rounded-md px-2 py-1 cursor-pointer select-none transition text-sm " + (
+                                checked ? 'bg-indigo-50 text-indigo-700' :
+                                maxReached ? 'opacity-40 cursor-not-allowed text-slate-500' :
+                                'hover:bg-slate-50 text-slate-700'
+                              )}>
+                                <input
+                                  type="checkbox"
+                                  className="accent-indigo-600 cursor-pointer"
+                                  checked={checked}
+                                  disabled={maxReached}
+                                  onChange={e => {
+                                    const curr = d.asignadoA;
+                                    setDraft(idx, {
+                                      asignadoA: e.target.checked
+                                        ? [...curr, String(u.id)]
+                                        : curr.filter(id => id !== String(u.id))
+                                    });
+                                  }}
+                                />
+                                {u.nombre}
+                              </label>
+                            );
+                          })}
+                          {users.length === 0 && <p className="text-xs text-slate-400 px-2 py-1">Sin instaladores</p>}
+                        </div>
                       </div>
                       <div>
                         <label className="mb-1 block text-[10px] font-semibold text-slate-500 uppercase">Hora</label>
                         <input type="time" value={d.hora} onChange={e => setDraft(idx, { hora: e.target.value })} className={inp} />
                       </div>
+                    </div>
+                    {/* Restricción horaria */}
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold text-amber-600 uppercase">⏰ Restricción horaria</label>
+                      <select value={d.restriccionHoraria} onChange={e => setDraft(idx, { restriccionHoraria: e.target.value })} className={inp}>
+                        <option value="">Sin restricción</option>
+                        <option value="NO SE PUEDE ANTES">NO SE PUEDE ANTES</option>
+                        <option value="NO PUEDE ANTES - NO CAMBIAR DÍA NI HORA">NO PUEDE ANTES - NO CAMBIAR DÍA NI HORA</option>
+                        <option value="CONFIRMAR LLEGADA 30 MIN ANTES">CONFIRMAR LLEGADA 30 MIN ANTES</option>
+                      </select>
                     </div>
 
                     {/* Cliente */}
@@ -1027,9 +1374,19 @@ function NuevaTareaForm({ users, fecha, onCreated, onCancel }: {
                           placeholder="Nombre del cliente" className={inp} />
                       </div>
                       <div>
+                        <label className="mb-1 block text-[10px] font-semibold text-slate-500 uppercase">Empresa / Proyecto</label>
+                        <input value={d.empresaCliente} onChange={e => setDraft(idx, { empresaCliente: e.target.value })}
+                          placeholder="Pebal Inmobiliaria" className={inp} />
+                      </div>
+                      <div>
                         <label className="mb-1 block text-[10px] font-semibold text-slate-500 uppercase">Teléfono</label>
                         <input value={d.clienteTelefono} onChange={e => setDraft(idx, { clienteTelefono: e.target.value })}
                           placeholder="+56 9 XXXX XXXX" className={inp} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold text-slate-500 uppercase">Email cliente</label>
+                        <input type="email" value={d.clienteEmail} onChange={e => setDraft(idx, { clienteEmail: e.target.value })}
+                          placeholder="cliente@correo.cl" className={inp} />
                       </div>
                       <div className="col-span-2">
                         <label className="mb-1 block text-[10px] font-semibold text-slate-500 uppercase">Dirección</label>
@@ -1043,16 +1400,54 @@ function NuevaTareaForm({ users, fecha, onCreated, onCancel }: {
                       </div>
                       <div>
                         <label className="mb-1 block text-[10px] font-semibold text-slate-500 uppercase">Vendedor</label>
-                        <input value={d.vendedorNombre} onChange={e => setDraft(idx, { vendedorNombre: e.target.value })}
-                          placeholder="Nombre vendedor" className={inp} />
+                        {vendedores.length > 0 ? (
+                          <select value={d.vendedorNombre} onChange={e => setDraft(idx, { vendedorNombre: e.target.value })} className={inp}>
+                            <option value="">— Sin vendedor —</option>
+                            {vendedores.map((v: any) => (
+                              <option key={v.id} value={v.nombre}>{v.nombre}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input value={d.vendedorNombre} onChange={e => setDraft(idx, { vendedorNombre: e.target.value })}
+                            placeholder="Nombre vendedor" className={inp} />
+                        )}
                       </div>
                     </div>
 
-                    {/* Trabajos */}
-                    <div>
-                      <label className="mb-1 block text-[10px] font-semibold text-slate-500 uppercase">Descripción general del trabajo</label>
-                      <input value={d.descripcion} onChange={e => setDraft(idx, { descripcion: e.target.value })}
-                        placeholder="Ej: 1 Cortina roller Blackout con cenefa" className={inp} />
+                    {/* Trabajos -- lo mismo que se suma en Comisiones */}
+                    <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <label className="text-[10px] font-semibold text-emerald-700 uppercase">Descripción general del trabajo</label>
+                        {(() => {
+                          const totalPreview = reglasList.reduce((s, r) => {
+                            const cant = parseInt(d.cantidadesComision[r.categoria] || '0') || 0;
+                            return s + (r.meta_mensual != null ? 0 : cant * r.monto_por_unidad);
+                          }, 0);
+                          return totalPreview > 0 ? (
+                            <span className="text-xs font-bold text-emerald-700">{fmt(totalPreview)}</span>
+                          ) : null;
+                        })()}
+                      </div>
+                      <p className="mb-2 text-[10px] text-emerald-700">
+                        Coloca la cantidad de cada tipo de trabajo hecho — es lo mismo que se suma en Comisiones y Liquidacion de sueldo.
+                      </p>
+                      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                        {reglasList.map(r => (
+                          <div key={r.id} className="flex items-center justify-between gap-2 rounded border border-slate-200 bg-white px-2 py-1.5">
+                            <span className="truncate text-[11px] text-slate-700" title={r.categoria}>
+                              {r.categoria}
+                              {r.meta_mensual != null && <span className="ml-1 text-[9px] text-amber-600">(meta {r.meta_mensual}/mes)</span>}
+                            </span>
+                            <input type="number" min="0" placeholder="0"
+                              value={d.cantidadesComision[r.categoria] || ''}
+                              onChange={e => setDraft(idx, { cantidadesComision: { ...d.cantidadesComision, [r.categoria]: e.target.value } })}
+                              className="w-14 flex-shrink-0 rounded border border-slate-200 px-1.5 py-0.5 text-center text-xs focus:outline-none focus:ring-1 focus:ring-emerald-300" />
+                          </div>
+                        ))}
+                        {reglasList.length === 0 && (
+                          <p className="col-span-2 text-xs text-slate-400 italic">Sin categorias de comision configuradas todavia.</p>
+                        )}
+                      </div>
                     </div>
 
                     {/* Ítems */}
@@ -1107,6 +1502,15 @@ function NuevaTareaForm({ users, fecha, onCreated, onCancel }: {
                         ))}
                       </div>
                     </div>
+
+                    {/* Nota especial */}
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold text-slate-500 uppercase">Nota especial (al pie del mensaje)</label>
+                      <textarea value={d.notaEspecial} onChange={e => setDraft(idx, { notaEspecial: e.target.value })}
+                        rows={2} placeholder="Ej: Departamento piloto: cuidar terminaciones y mantener limpieza"
+                        className={`${inp} resize-none`} />
+                    </div>
+
                   </div>
                 )}
               </div>
@@ -1283,7 +1687,7 @@ export function MapaGPS() {
             {autoRefresh ? ' Actualizando automáticamente' : ' Auto-actualización pausada'}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition ${
@@ -1371,9 +1775,10 @@ export function MapaGPS() {
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
         <h3 className="mb-1 text-xs font-bold text-slate-600">¿Cómo funciona?</h3>
         <p className="text-xs text-slate-500">
-          Cuando un técnico marca una OT como "En Camino", la app activa automáticamente el GPS y
-          envía su posición cada 30 segundos. Esta pantalla muestra las posiciones en tiempo real.
-          Los técnicos pueden pausar el GPS desde su panel de instalaciones.
+          Cuando un técnico marca una OT o tarea como "En Camino" / "Iniciar", la app activa
+          automáticamente el GPS de su celular y le manda el link de seguimiento al cliente por
+          WhatsApp, en el mismo paso. Esta pantalla muestra sus posiciones en tiempo real, actualizándose
+          cada 30 segundos. Los técnicos pueden detener el GPS desde su propio panel de instalaciones.
         </p>
       </div>
     </div>
